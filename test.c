@@ -10,7 +10,7 @@ int main()
     scroll_window_t scroll_window = scroll_window_init(10, 2, 50, 15, "scroll");
     input_window_t input_window = input_window_init(10, 17, 50, "input");
     
-    char buff[50];
+    char buff[60];
     while (strcmp(buff, "exit") != 0)
     {
         input_window_read(input_window, buff, sizeof buff);

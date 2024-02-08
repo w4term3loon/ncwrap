@@ -15,7 +15,7 @@
 //    TODO: enable resize of window
 //    TODO: add box border art
 //    TODO: introduce thread safety
-//    TODO: input box does not clear on char overflow
+//    TODO: debug window for internal error messages
 // --------------------------------------------------
 
 void ncurses_init()
@@ -72,12 +72,12 @@ void delete(char* buff, size_t buff_siz, int idx)
 
 void insert(char* buff, size_t buff_siz, int idx, char ch)
 {
-   for (size_t i = buff_siz - 1; i > idx; --i)
-    {
-        if (i > idx)
-        { buff[i] = buff[i - 1]; }
-    }
-    
+   	for (size_t i = buff_siz - 1; i > idx; --i)
+   	{
+       	if (i > idx)
+       	{ buff[i] = buff[i - 1]; }
+   	}
+	    
     buff[idx] = ch;
 }
 
@@ -93,11 +93,11 @@ int input_window_read(input_window_t* input_window, char *buff, size_t buff_siz)
     int width = input_window->width;
     char display[width];
     int capture = 0;
-    for (size_t i = 0; i < buff_siz - 2; ++i)
+    for (size_t i = 0; i < buff_siz - 1; ++i)
     {
         capture = 0;
         next = wgetch(input_window->window);
-        if (31 < next && next < 128) { capture += 1; }
+        if (31 < next && next < 128) { ++capture; }
         switch (next)
         {
             case 127: // backspace
@@ -105,7 +105,7 @@ int input_window_read(input_window_t* input_window, char *buff, size_t buff_siz)
             case KEY_BACKSPACE:
                 if (scope != 0 || cursor != 0) {
                     delete(buff, buff_siz, scope + cursor - 1);
-                    if (scope != 0 && (cursor + scope == i || cursor <= 3))
+                    if (scope != 0 && (cursor + scope == i || cursor <= width))
                     { scope -= 1; }
                     else { cursor -= 1; }
                     i -= 2;
@@ -113,7 +113,7 @@ int input_window_read(input_window_t* input_window, char *buff, size_t buff_siz)
                 else { --i; } // indicate nothing happened
                 break;
                 
-            case '\n':
+            case '\n': // return
             case '\r':
             case KEY_ENTER:
                 buff[i] = '\0';
@@ -126,7 +126,7 @@ int input_window_read(input_window_t* input_window, char *buff, size_t buff_siz)
                 wgetch(input_window->window);
                 switch(wgetch(input_window->window))
                 {
-                    case 'D':
+                    case 'D': // left arrow
                     case KEY_LEFT:
                         if (cursor != 0 )
                         { cursor -= 1; }
@@ -137,7 +137,7 @@ int input_window_read(input_window_t* input_window, char *buff, size_t buff_siz)
                         }
                         break;
                     
-                    case 'C':
+                    case 'C': // right arrow
                     case KEY_RIGHT:
                         if (cursor != width - 3)
                         {
@@ -148,8 +148,8 @@ int input_window_read(input_window_t* input_window, char *buff, size_t buff_siz)
                         { scope += 1; }
                         break;
                         
-                    case 'A':
-                    case 'B':
+                    case 'A': // up arrow
+                    case 'B': // down arrow
                     case KEY_UP:
                     case KEY_DOWN:
                         break;
@@ -162,26 +162,40 @@ int input_window_read(input_window_t* input_window, char *buff, size_t buff_siz)
             default:
                 if (capture)
                 {
-                insert(buff, buff_siz, scope + cursor, (char)next);
-                if (width - 3 == cursor)
-                { scope += 1; }
-                else { cursor += 1; }
+                	insert(buff, buff_siz, scope + cursor, (char)next);
+                	if (width - 3 == cursor)
+                	{ scope += 1; }
+                	else { cursor += 1; }
+
                 } else break;
         }
         
-        buff[i + 1] = '\0';
+		buff[i + 1] = '\0';
         clear_window_content(input_window->window, input_window->title);
         
-        for (int j = 0; j < input_window->width - 2; ++j)
+        for (int j = 0; j < width - 1; ++j)
         {
             display[j] = buff[scope + j];
+			if (j == input_window->width - 2)
+			{ display[j] = '\0'; };
         }
-
+    
         mvwprintw(input_window->window, 1, 1, "%s", display);
+
+		// left indicator
+		if (scope != 0) 
+		{ mvwprintw(input_window->window, 1, 0, "<"); }
+		
+		// right indicator
+		if (i - scope + 1 >= width - 2) 
+		{ mvwprintw(input_window->window, 1, width - 1, ">"); }
+
         wmove(input_window->window, 1, 1 + cursor);
     }
     
     curs_set(0);
+	clear_window_content(input_window->window, input_window->title);
+
     return buff_siz;
 }
 
