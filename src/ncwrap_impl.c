@@ -5,7 +5,7 @@
 #include <pthread.h>
 
 #include "ncurses.h"
-#include "ncurses_wrapper_impl.h"
+#include "ncwrap_impl.h"
 
 // --------------------------------------------------
 //    TODO: scroll window line memory management

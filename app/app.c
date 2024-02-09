@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "ncurses_wrapper.h"
+#include "ncwrap.h"
 
 int main()
 {
