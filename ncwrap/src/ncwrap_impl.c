@@ -32,10 +32,17 @@ void ncurses_close()
     (void)endwin();
 }
 
+size_t length(const char* string)
+{
+    size_t i = 0;
+    for(; string[i] != '\0'; ++i){}
+    return i + 1;
+}
+ 
 input_window_t* input_window_init(int x, int y, int width, const char* title)
 {
     input_window_t* input_window =
-        (input_window_t*)malloc(sizeof(input_window_t) + sizeof((*title) + 1));
+        (input_window_t*)malloc(sizeof(input_window_t) + length(title));
     if (input_window == NULL)
     {
         fprintf(stderr, "ERROR: input window init failed.\n");
@@ -43,7 +50,7 @@ input_window_t* input_window_init(int x, int y, int width, const char* title)
     }
     
     input_window->title = (char*)(input_window + sizeof(input_window));
-    strcpy(input_window->title, title);
+    strncpy(input_window->title, title, length(title));
     input_window->window = newwin(3, width, y, x);
     input_window->width = width;
     
@@ -57,7 +64,7 @@ input_window_t* input_window_init(int x, int y, int width, const char* title)
 void input_window_close(input_window_t* input_window)
 {
     delwin(input_window->window);
-    free(input_window);
+    free((void*)input_window);
     input_window = NULL;
 }
 
@@ -202,7 +209,7 @@ int input_window_read(input_window_t* input_window, char *buff, size_t buff_siz)
 scroll_window_t* scroll_window_init(int x, int y, int width, int height, const char* title)
 {
     scroll_window_t* scroll_window =
-        (scroll_window_t*)malloc(sizeof(scroll_window_t) + sizeof((*title) + 1));
+        (scroll_window_t*)malloc(sizeof(scroll_window_t) + length(title));
     if (scroll_window == NULL)
     {
         fprintf(stderr, "ERROR: scroll window init failed.\n");
@@ -210,7 +217,7 @@ scroll_window_t* scroll_window_init(int x, int y, int width, int height, const c
     }
     
     scroll_window->title = (char*)(scroll_window + sizeof(scroll_window));
-    strcpy(scroll_window->title, title);
+    strncpy(scroll_window->title, title, length(title));
     scroll_window->window = newwin(height, width, y, x);
     scroll_window->width = width;
     scroll_window->height = height;
@@ -231,7 +238,7 @@ void scroll_window_close(scroll_window_t* scroll_window)
     scroll_window = NULL;
 }
 
-void scroll_window_newline(scroll_window_t* scroll_window, const char* line)
+void scroll_window_add_line(scroll_window_t* scroll_window, const char* line)
 {
     scroll(scroll_window->window);
     
@@ -245,9 +252,93 @@ void scroll_window_newline(scroll_window_t* scroll_window, const char* line)
     wrefresh(scroll_window->window);
 }
 
-//---------
-// helpers |
-//---------
+menu_window_t* menu_window_init(int x, int y, int width, int height, const char* title)
+{
+	menu_window_t *menu_window =
+		(menu_window_t*)malloc(sizeof(menu_window_t) + length(title));
+	if (menu_window == NULL)
+	{
+        fprintf(stderr, "ERROR: menu window init failed.\n");
+        return (menu_window_t*)NULL;
+	}
+    
+	menu_window->title = (char*)(menu_window + sizeof(menu_window));
+    strncpy(menu_window->title, title, length(title));
+    menu_window->window = newwin(height, width, y, x);
+    menu_window->width = width;
+    menu_window->height = height;
+    
+    box(menu_window->window, 0, 0);
+    mvwprintw(menu_window->window, 0, 1, " %s ", title);
+    wrefresh(menu_window->window);
+    
+    return menu_window;
+}
+
+void menu_window_close(menu_window_t *menu_window)
+{
+    delwin(menu_window->window);
+    free((void*)menu_window);
+    menu_window = NULL;
+}
+
+void menu_window_add_option(menu_window_t *menu_window, const char* title, void (*cb)(void *), void *ctx)
+{
+
+}
+
+void menu_window_start(menu_window_t* menu_window) {
+/*
+    int ch;
+    int highlight = 0;
+
+    while(true)
+	{
+        while(true) {
+            if ((size_t)highlight >= menu_window->items.size()) {
+                --highlight;
+            } else {
+                break;
+            }
+        }
+
+        menu_window_update(menu_window, highlight);
+
+        ch = wgetch(menu_window->window);
+        switch(ch)
+        {
+
+        case KEY_UP:
+            if (highlight != 0)
+                --highlight;
+            break;
+
+        case KEY_DOWN:
+            if ((size_t)highlight != menu_window->items.size() - 1)
+                ++highlight;
+            break;
+
+        case '\n':
+        case '\r':
+        case KEY_ENTER:
+            menu_window->items[highlight].cb(menu_window->items[highlight].ctx);
+            break;
+
+        case 27:    //< Esc
+        case 113:   //< q
+            goto exit;
+
+        default:
+            ;
+        }
+
+        if (false) {
+        exit:
+            break;
+        }
+	}
+	*/
+}
 
 void clear_window_content(WINDOW* window, char* title)
 {
@@ -255,7 +346,4 @@ void clear_window_content(WINDOW* window, char* title)
     box(window, 0, 0);
     mvwprintw(window, 0, 1, " %s ", title);
 }
-
-
-
 
