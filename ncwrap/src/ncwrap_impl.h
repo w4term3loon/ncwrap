@@ -1,5 +1,5 @@
-#ifndef NCURSES_WRAPPER_IMPL_H_HEADER_GUARD
-#define NCURSES_WRAPPER_IMPL_H_HEADER_GUARD
+#ifndef NCWRAP_IMPL_H_HEADER_GUARD
+#define NCWRAP_IMPL_H_HEADER_GUARD
 
 typedef struct {
     char* title;
@@ -14,13 +14,19 @@ typedef struct {
 } scroll_window_t;
 
 typedef struct {
+	char *name;
+	void (*cb)(void *);
+	void *ctx;
+} option_t;
+
+typedef struct {
     char* title;
     WINDOW* window;
     int width, height;
+	option_t *options;
+	int options_num;
 } menu_window_t;
-
-typedef void (*option_cb)(void *ctx);
 
 void clear_window_content(WINDOW* window, char* title);
 
-#endif // NCURSES_WRAPPER_IMPL_H_HEADER_GUARD
+#endif // NCWRAP_IMPL_H_HEADER_GUARD

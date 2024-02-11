@@ -16,7 +16,11 @@
 //    TODO: add box border art
 //    TODO: introduce thread safety
 //    TODO: debug window for internal error messages
+//    TODO: handle multiple menu items with the same name (delete)
+//    TODO: use strlen instead of lengt
 // --------------------------------------------------
+
+void menu_window_update(menu_window_t* menu_window, int highlight);
 
 void ncurses_init()
 {
@@ -64,7 +68,7 @@ input_window_t* input_window_init(int x, int y, int width, const char* title)
 void input_window_close(input_window_t* input_window)
 {
     delwin(input_window->window);
-    free((void*)input_window);
+    free((void *)input_window);
     input_window = NULL;
 }
 
@@ -234,7 +238,7 @@ scroll_window_t* scroll_window_init(int x, int y, int width, int height, const c
 void scroll_window_close(scroll_window_t* scroll_window)
 {
     delwin(scroll_window->window);
-    free((void*)scroll_window);
+    free((void *)scroll_window);
     scroll_window = NULL;
 }
 
@@ -267,7 +271,9 @@ menu_window_t* menu_window_init(int x, int y, int width, int height, const char*
     menu_window->window = newwin(height, width, y, x);
     menu_window->width = width;
     menu_window->height = height;
-    
+    menu_window->options = (option_t*)NULL;
+	menu_window->options_num = 0;
+
     box(menu_window->window, 0, 0);
     mvwprintw(menu_window->window, 0, 1, " %s ", title);
     wrefresh(menu_window->window);
@@ -278,24 +284,129 @@ menu_window_t* menu_window_init(int x, int y, int width, int height, const char*
 void menu_window_close(menu_window_t *menu_window)
 {
     delwin(menu_window->window);
-    free((void*)menu_window);
+	for (int i = 0; i < menu_window->options_num; ++i)
+	{
+		free((void *)(menu_window->options + i)->name);
+	}
+	free((void *)menu_window->options);
+    free((void *)menu_window);
     menu_window = NULL;
 }
 
-void menu_window_add_option(menu_window_t *menu_window, const char* title, void (*cb)(void *), void *ctx)
+void menu_window_add_option(menu_window_t *menu_window, const char *name, void (*cb)(void *), void *ctx)
 {
+	void *new_options = realloc(menu_window->options, (menu_window->options_num + 1) * sizeof(option_t));
+	if (new_options == NULL)
+	{
+        fprintf(stderr, "ERROR: menu window add option failed.\n");
+        return;
+	}
 
+	menu_window->options = new_options;
+	
+	option_t *new_option = (menu_window->options + menu_window->options_num);
+	new_option->name = (char *)malloc(strlen(name) + 1);
+	if (new_option->name == NULL)
+	{
+        fprintf(stderr, "ERROR: menu window add option failed.\n");
+        return;
+	}
+
+	strncpy(new_option->name, name, strlen(name) + 1);
+	new_option->cb = cb;
+	new_option->ctx = ctx;
+	
+	menu_window->options_num += 1;
+	menu_window_update(menu_window, 0);
 }
 
-void menu_window_start(menu_window_t* menu_window) {
-/*
+void squash(menu_window_t *menu_window, int option_offset)
+{
+	if (option_offset == menu_window->options_num - 1)
+	{
+		return; // realloc will take care of the last element
+	}
+	else
+	{
+		// shift all elements back one place, starting after the offset
+		for (int i = option_offset; i < menu_window->options_num - 1; ++i)
+		{
+			(menu_window->options + i)->name = (menu_window->options + i + 1)->name;
+			(menu_window->options + i)->cb = (menu_window->options + i + 1)->cb;
+			(menu_window->options + i)->ctx = (menu_window->options + i + 1)->ctx;
+		}
+	}
+}
+
+void menu_window_delete_option(menu_window_t *menu_window, const char *name)
+{
+	for (int i = 0; i < menu_window->options_num; ++i)
+	{
+		if (strcmp((menu_window->options + i)->name, name) == 0)
+		{
+			squash(menu_window, i);
+			break;
+		}
+	}
+}
+
+void menu_window_update(menu_window_t* menu_window, int highlight) {
+
+	clear_window_content(menu_window->window, menu_window->title);
+    for (int i = 0; i < menu_window->options_num; ++i)
+	{
+        if (highlight == i) { wattron(menu_window->window, A_REVERSE); }
+		mvwprintw(menu_window->window, i + 1, 1, "%s", (menu_window->options + i)->name);
+        if (highlight == i) { wattroff(menu_window->window, A_REVERSE); }
+	}
+//0	wrefresh(menu_window->window);
+
+	/*
+    std::string temp_line;
+    int net_width = menu_window->width - 2;
+
+    for(size_t i = 0; i < menu_window->items.size(); ++i) {
+
+        if (net_width < 4) {
+
+            for (size_t j = 0; j < (size_t)net_width; ++j) {
+                temp_line.push_back('.');
+            }
+
+        } else if ((size_t)net_width < menu_window->items[i].label.size()){
+
+            for (size_t j = 0; j < (size_t)net_width - 3; ++j) {
+                temp_line.push_back(menu_window->items[i].label[j]);
+            }
+
+            temp_line = temp_line + "...";
+
+        } else {
+
+            temp_line = menu_window->items[i].label;
+
+            size_t padding = (size_t)net_width - menu_window->items[i].label.size();
+            for (size_t j = 0; j < padding; ++j) {
+                temp_line.push_back(' ');
+            }
+        }
+
+        if ((size_t)highlight == i) { wattron(menu_window->window, A_REVERSE); }
+        mvwprintw(menu_window->window, i + 1, 1, "%s", temp_line.c_str());
+        if ((size_t)highlight == i) { wattroff(menu_window->window, A_REVERSE); }
+
+        temp_line.clear();
+    }
+	*/
+}
+
+void menu_window_start(menu_window_t *menu_window) {
     int ch;
     int highlight = 0;
-
     while(true)
 	{
         while(true) {
-            if ((size_t)highlight >= menu_window->items.size()) {
+            if (highlight >= menu_window->options_num) {
                 --highlight;
             } else {
                 break;
@@ -307,21 +418,20 @@ void menu_window_start(menu_window_t* menu_window) {
         ch = wgetch(menu_window->window);
         switch(ch)
         {
-
-        case KEY_UP:
+        case 107: // k
             if (highlight != 0)
                 --highlight;
             break;
 
-        case KEY_DOWN:
-            if ((size_t)highlight != menu_window->items.size() - 1)
+        case 106: // j
+            if (highlight != menu_window->options_num - 1)
                 ++highlight;
             break;
 
         case '\n':
         case '\r':
         case KEY_ENTER:
-            menu_window->items[highlight].cb(menu_window->items[highlight].ctx);
+            (menu_window->options + highlight)->cb((menu_window->options + highlight)->ctx);
             break;
 
         case 27:    //< Esc
@@ -337,7 +447,6 @@ void menu_window_start(menu_window_t* menu_window) {
             break;
         }
 	}
-	*/
 }
 
 void clear_window_content(WINDOW* window, char* title)

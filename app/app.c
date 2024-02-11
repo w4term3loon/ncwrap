@@ -3,6 +3,11 @@
 #include <string.h>
 #include "ncwrap.h"
 
+void cb(void *ctx) 
+{
+	++*(int*)ctx;
+}
+
 int main()
 {
     ncurses_init();
@@ -10,7 +15,12 @@ int main()
     scroll_window_t scroll_window = scroll_window_init(30, 2, 50, 15, "scroll");
     input_window_t input_window = input_window_init(30, 17, 50, "input");
     menu_window_t menu_window = menu_window_init(10, 2, 20, 18, "menu");
-    
+	
+	int cnt = 0;
+	menu_window_add_option(menu_window, "option1", cb, (void *)&cnt);
+	menu_window_add_option(menu_window, "option2", cb, (void *)&cnt);
+	menu_window_start(menu_window);
+
     char buff[60];
     while (strcmp(buff, "exit") != 0)
     {
@@ -23,5 +33,6 @@ int main()
     menu_window_close(menu_window);
     
     ncurses_close();
+	printf("menu item selected %d times.\n", cnt);
     return 0;
 }
