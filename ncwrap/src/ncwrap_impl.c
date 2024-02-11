@@ -35,26 +35,19 @@ void ncurses_close()
 {
     (void)endwin();
 }
-
-size_t length(const char* string)
-{
-    size_t i = 0;
-    for(; string[i] != '\0'; ++i){}
-    return i + 1;
-}
  
 input_window_t* input_window_init(int x, int y, int width, const char* title)
 {
     input_window_t* input_window =
-        (input_window_t*)malloc(sizeof(input_window_t) + length(title));
+        (input_window_t*)malloc(sizeof(input_window_t) + strlen(title) + 1);
     if (input_window == NULL)
     {
         fprintf(stderr, "ERROR: input window init failed.\n");
         return (input_window_t*)NULL;
     }
     
-    input_window->title = (char*)(input_window + sizeof(input_window));
-    strncpy(input_window->title, title, length(title));
+    input_window->title = (char*)(input_window + 1);
+    (void)strncpy(input_window->title, title, strlen(title) + 1);
     input_window->window = newwin(3, width, y, x);
     input_window->width = width;
     
@@ -213,15 +206,15 @@ int input_window_read(input_window_t* input_window, char *buff, size_t buff_siz)
 scroll_window_t* scroll_window_init(int x, int y, int width, int height, const char* title)
 {
     scroll_window_t* scroll_window =
-        (scroll_window_t*)malloc(sizeof(scroll_window_t) + length(title));
+        (scroll_window_t*)malloc(sizeof(scroll_window_t) + strlen(title) + 1);
     if (scroll_window == NULL)
     {
         fprintf(stderr, "ERROR: scroll window init failed.\n");
         return (scroll_window_t*)NULL;
     }
     
-    scroll_window->title = (char*)(scroll_window + sizeof(scroll_window));
-    strncpy(scroll_window->title, title, length(title));
+    scroll_window->title = (char*)(scroll_window + 1);
+    (void)strncpy(scroll_window->title, title, strlen(title) + 1);
     scroll_window->window = newwin(height, width, y, x);
     scroll_window->width = width;
     scroll_window->height = height;
@@ -259,19 +252,19 @@ void scroll_window_add_line(scroll_window_t* scroll_window, const char* line)
 menu_window_t* menu_window_init(int x, int y, int width, int height, const char* title)
 {
 	menu_window_t *menu_window =
-		(menu_window_t*)malloc(sizeof(menu_window_t) + length(title));
+		(menu_window_t *)malloc(sizeof(menu_window_t) + strlen(title) + 1);
 	if (menu_window == NULL)
 	{
         fprintf(stderr, "ERROR: menu window init failed.\n");
-        return (menu_window_t*)NULL;
+        return (menu_window_t *)NULL;
 	}
     
-	menu_window->title = (char*)(menu_window + sizeof(menu_window));
-    strncpy(menu_window->title, title, length(title));
+	menu_window->title = (char *)(menu_window + 1);
+    (void)strncpy(menu_window->title, title, strlen(title) + 1);
     menu_window->window = newwin(height, width, y, x);
     menu_window->width = width;
     menu_window->height = height;
-    menu_window->options = (option_t*)NULL;
+    menu_window->options = (option_t *)NULL;
 	menu_window->options_num = 0;
 
     box(menu_window->window, 0, 0);
@@ -301,7 +294,6 @@ void menu_window_add_option(menu_window_t *menu_window, const char *name, void (
         fprintf(stderr, "ERROR: menu window add option failed.\n");
         return;
 	}
-
 	menu_window->options = new_options;
 	
 	option_t *new_option = (menu_window->options + menu_window->options_num);
@@ -312,7 +304,7 @@ void menu_window_add_option(menu_window_t *menu_window, const char *name, void (
         return;
 	}
 
-	strncpy(new_option->name, name, strlen(name) + 1);
+	(void)strncpy(new_option->name, name, strlen(name) + 1);
 	new_option->cb = cb;
 	new_option->ctx = ctx;
 	
@@ -322,6 +314,8 @@ void menu_window_add_option(menu_window_t *menu_window, const char *name, void (
 
 void squash(menu_window_t *menu_window, int option_offset)
 {
+	// free dynamically allocated name
+	free((void *)(menu_window->options + option_offset)->name);
 	if (option_offset == menu_window->options_num - 1)
 	{
 		return; // realloc will take care of the last element
@@ -345,6 +339,17 @@ void menu_window_delete_option(menu_window_t *menu_window, const char *name)
 		if (strcmp((menu_window->options + i)->name, name) == 0)
 		{
 			squash(menu_window, i);
+			
+			void *new_options = realloc(menu_window->options, (menu_window->options_num - 1) * sizeof(option_t));
+			if (new_options == NULL)
+			{
+				fprintf(stderr, "ERROR: menu window delete option failed.\n");
+				return;
+			}
+			menu_window->options = new_options;
+
+			--menu_window->options_num;
+			menu_window_update(menu_window, 0);
 			break;
 		}
 	}

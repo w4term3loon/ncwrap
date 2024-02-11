@@ -21,5 +21,6 @@ menu_window_t menu_window_init(int x, int y, int width, int height, const char* 
 void menu_window_close(menu_window_t menu_window);
 void menu_window_start(menu_window_t menu_window);
 void menu_window_add_option(menu_window_t menu_window, const char* title, option_cb cb, void *ctx);
+void menu_window_delete_option(menu_window_t menu_window, const char *name);
 
 #endif // NCWRAP_H_HEADER_GUARD
