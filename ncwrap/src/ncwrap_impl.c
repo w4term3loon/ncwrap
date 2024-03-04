@@ -3,6 +3,7 @@
 #include <math.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <stdarg.h>
 
 #include "ncurses.h"
 #include "ncwrap_impl.h"
@@ -14,15 +15,20 @@
 //    TODO: indicate nothing happened
 //    TODO: enable resize of window
 //    TODO: add box border art
-//    TODO: introduce thread safety
+//    TODO: introduce thread safety ??
 //    TODO: debug window for internal error messages
 //    TODO: handle multiple menu items with the same name (delete)
-//    TODO: use strlen instead of lengt
+//    TODO: terminal window
 // --------------------------------------------------
 
 void menu_window_update(menu_window_t* menu_window, int highlight);
 
-void ncurses_init()
+void ncwrap_error(const char *ctx)
+{
+	(void)fprintf(stderr, "ERROR: ncwrap failed during %s.\n", ctx);
+}
+
+void ncwrap_init()
 {
     (void)initscr();
     (void)nonl();
@@ -31,7 +37,7 @@ void ncurses_init()
     (void)curs_set(0);
 }
 
-void ncurses_close()
+void ncwrap_close()
 {
     (void)endwin();
 }
@@ -42,7 +48,7 @@ input_window_t* input_window_init(int x, int y, int width, const char* title)
         (input_window_t*)malloc(sizeof(input_window_t) + strlen(title) + 1);
     if (input_window == NULL)
     {
-        fprintf(stderr, "ERROR: input window init failed.\n");
+		ncwrap_error("input window init");
         return (input_window_t*)NULL;
     }
     
@@ -209,7 +215,7 @@ scroll_window_t* scroll_window_init(int x, int y, int width, int height, const c
         (scroll_window_t*)malloc(sizeof(scroll_window_t) + strlen(title) + 1);
     if (scroll_window == NULL)
     {
-        fprintf(stderr, "ERROR: scroll window init failed.\n");
+		ncwrap_error("scroll window init");
         return (scroll_window_t*)NULL;
     }
     
@@ -255,7 +261,7 @@ menu_window_t* menu_window_init(int x, int y, int width, int height, const char*
 		(menu_window_t *)malloc(sizeof(menu_window_t) + strlen(title) + 1);
 	if (menu_window == NULL)
 	{
-        fprintf(stderr, "ERROR: menu window init failed.\n");
+		ncwrap_error("menu window init");
         return (menu_window_t *)NULL;
 	}
     
@@ -291,7 +297,7 @@ void menu_window_add_option(menu_window_t *menu_window, const char *name, void (
 	void *new_options = realloc(menu_window->options, (menu_window->options_num + 1) * sizeof(option_t));
 	if (new_options == NULL)
 	{
-        fprintf(stderr, "ERROR: menu window add option failed.\n");
+		ncwrap_error("menu window add option");
         return;
 	}
 	menu_window->options = new_options;
@@ -300,7 +306,7 @@ void menu_window_add_option(menu_window_t *menu_window, const char *name, void (
 	new_option->name = (char *)malloc(strlen(name) + 1);
 	if (new_option->name == NULL)
 	{
-        fprintf(stderr, "ERROR: menu window add option failed.\n");
+		ncwrap_error("menu window add option");
         return;
 	}
 
@@ -343,7 +349,7 @@ void menu_window_delete_option(menu_window_t *menu_window, const char *name)
 			void *new_options = realloc(menu_window->options, (menu_window->options_num - 1) * sizeof(option_t));
 			if (new_options == NULL)
 			{
-				fprintf(stderr, "ERROR: menu window delete option failed.\n");
+				ncwrap_error("menu window delete option");
 				return;
 			}
 			menu_window->options = new_options;
@@ -364,7 +370,8 @@ void menu_window_update(menu_window_t* menu_window, int highlight) {
 		mvwprintw(menu_window->window, i + 1, 1, "%s", (menu_window->options + i)->name);
         if (highlight == i) { wattroff(menu_window->window, A_REVERSE); }
 	}
-//0	wrefresh(menu_window->window);
+
+	// wrefresh(menu_window->window);
 
 	/*
     std::string temp_line;

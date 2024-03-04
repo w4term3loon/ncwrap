@@ -10,7 +10,7 @@ void cb(void *ctx)
 
 void delete_cb(void *ctx)
 {
-    input_window_t input_window = input_window_init(15, 10, 20, "delete");
+    input_window_t input_window = input_window_init(10, 10, 20, "delete");
 	char buff[20];
     input_window_read(input_window, buff, sizeof buff);
 	input_window_close(input_window);
@@ -20,7 +20,7 @@ void delete_cb(void *ctx)
 
 int main()
 {
-    ncurses_init();
+    ncwrap_init();
     
     scroll_window_t scroll_window = scroll_window_init(30, 2, 50, 15, "scroll");
     input_window_t input_window = input_window_init(30, 17, 50, "input");
@@ -43,7 +43,7 @@ int main()
     scroll_window_close(scroll_window);
     menu_window_close(menu_window);
     
-    ncurses_close();
+    ncwrap_close();
 	printf("menu item selected %d times.\n", cnt);
     return 0;
 }

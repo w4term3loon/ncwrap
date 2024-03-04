@@ -5,8 +5,8 @@ typedef struct input_window_t* input_window_t;
 typedef struct scroll_window_t* scroll_window_t;
 typedef struct menu_window_t* menu_window_t;
 
-void ncurses_init();
-void ncurses_close();
+void ncwrap_init();
+void ncwrap_close();
 
 input_window_t input_window_init(int x, int y, int width, const char* title);
 void input_window_close(input_window_t input_window);
