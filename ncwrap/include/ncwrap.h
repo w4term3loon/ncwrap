@@ -1,6 +1,8 @@
 #ifndef NCWRAP_H_HEADER_GUARD
 #define NCWRAP_H_HEADER_GUARD
 
+#include <stddef.h>
+
 typedef struct input_window_t *input_window_t;
 typedef struct scroll_window_t *scroll_window_t;
 typedef struct menu_window_t *menu_window_t;
