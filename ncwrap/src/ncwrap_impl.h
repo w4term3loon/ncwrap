@@ -25,9 +25,9 @@ typedef struct {
     int width, height;
     option_t *options;
     int options_num;
+    int highlight;
 } menu_window_t;
 
-void
-clear_window_content(WINDOW *window, char *title);
+void clear_window_content(WINDOW *window, char *title);
 
 #endif // NCWRAP_IMPL_H_HEADER_GUARD

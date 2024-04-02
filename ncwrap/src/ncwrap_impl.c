@@ -17,23 +17,25 @@
 // BUG-----------------------------------------------
 //    TODO: unrecognised characters (TAB)
 //    TODO: handle multiple menu items with the same name (delete)
-//    TODO: deleting an option from menu should make the highlight stay on the
-//    same option (make highligt an attribute of menu struct)
 //    TODO: RETURN VALUE CHECKING U MORON!!!
+//    TODO: include public header to implementation
 // --------------------------------------------------
 
 // FEATURE-------------------------------------------
 //    TODO: introduce thread safety ??
 //    TODO: terminal window
 //    TODO: debug window
+//    TODO: game window
+//    TODO: custom window
+//    TODO: window editor window
+//    TODO: save log from scroll window
+//    TODO: login window
+//    TODO: header menus for windows
 // --------------------------------------------------
 
 void
-menu_window_update(menu_window_t *menu_window, int highlight);
-
-void
-handle_error(const char *ctx) {
-    (void)fprintf(stderr, "ERROR: ncwrap failed during %s.\n", ctx);
+handle_error(const char *function) {
+    (void)fprintf(stderr, "ERROR: ncwrap failed during %s.\n", function);
 }
 
 #define ncwrap_error handle_error(__func__)
@@ -89,7 +91,7 @@ input_window_close(input_window_t *input_window) {
     input_window = NULL;
 }
 
-void delete (char *buff, size_t buff_siz, int idx) {
+void delete(char *buff, size_t buff_siz, int idx) {
     for (size_t i = 0; i < buff_siz; ++i) {
         if (i >= idx) {
             buff[i] = buff[i + 1];
@@ -308,6 +310,7 @@ menu_window_init(int x, int y, int width, int height, const char *title) {
     menu_window->height = height;
     menu_window->options = (option_t *)NULL;
     menu_window->options_num = 0;
+    menu_window->highlight = 0;
 
     // display menu
     box(menu_window->window, 0, 0);
@@ -326,6 +329,22 @@ menu_window_close(menu_window_t *menu_window) {
     free((void *)menu_window->options);
     free((void *)menu_window);
     menu_window = NULL;
+}
+
+void
+menu_window_update(menu_window_t *menu_window) {
+    clear_window_content(menu_window->window, menu_window->title);
+    for (int i = 0; i < menu_window->options_num; ++i) {
+        if (menu_window->highlight == i) {
+            wattron(menu_window->window, A_REVERSE);
+        }
+        mvwprintw(menu_window->window, i + 1, 1, "%s",
+                  (menu_window->options + i)->label);
+        if (menu_window->highlight == i) {
+            wattroff(menu_window->window, A_REVERSE);
+        }
+    }
+    wrefresh(menu_window->window);
 }
 
 void
@@ -354,7 +373,7 @@ menu_window_add_option(menu_window_t *menu_window, const char *label,
     new_option->ctx = ctx;
 
     menu_window->options_num += 1;
-    menu_window_update(menu_window, 0);
+    menu_window_update(menu_window);
 }
 
 void
@@ -391,67 +410,56 @@ menu_window_delete_option(menu_window_t *menu_window, const char *label) {
             menu_window->options = new_options;
 
             --menu_window->options_num;
-            menu_window_update(menu_window, 0);
+
+            // adjust highlight
+            if (i <= menu_window->highlight) {
+                --menu_window->highlight;
+            }
+
+            menu_window_update(menu_window);
             break;
         }
     }
-}
-
-void
-menu_window_update(menu_window_t *menu_window, int highlight) {
-
-    clear_window_content(menu_window->window, menu_window->title);
-    for (int i = 0; i < menu_window->options_num; ++i) {
-        if (highlight == i) {
-            wattron(menu_window->window, A_REVERSE);
-        }
-        mvwprintw(menu_window->window, i + 1, 1, "%s",
-                  (menu_window->options + i)->label);
-        if (highlight == i) {
-            wattroff(menu_window->window, A_REVERSE);
-        }
-    }
-
-    wrefresh(menu_window->window);
 }
 
 void
 menu_window_start(menu_window_t *menu_window) {
     int ch;
-    int highlight = 0;
     while (true) {
         while (true) {
-            if (highlight >= menu_window->options_num) {
-                --highlight;
+            if (menu_window->highlight >= menu_window->options_num) {
+                --menu_window->highlight;
             } else {
                 break;
             }
         }
 
-        menu_window_update(menu_window, highlight);
+        menu_window_update(menu_window);
 
         ch = wgetch(menu_window->window);
         switch (ch) {
         case 107: // k
-            if (highlight != 0)
-                --highlight;
+            if (menu_window->highlight != 0)
+                --menu_window->highlight;
             break;
 
         case 106: // j
-            if (highlight != menu_window->options_num - 1)
-                ++highlight;
+            if (menu_window->highlight != menu_window->options_num - 1)
+                ++menu_window->highlight;
             break;
 
         case '\n':
         case '\r':
         case KEY_ENTER:
-            (menu_window->options + highlight)
-                ->cb((menu_window->options + highlight)->ctx);
+            (menu_window->options + menu_window->highlight)
+                ->cb((menu_window->options + menu_window->highlight)->ctx);
             break;
 
         case 27:  //< Esc
         case 113: //< q
-            menu_window_update(menu_window, -1);
+            // stop highlighting
+            menu_window->highlight = -1;
+            menu_window_update(menu_window);
             goto exit;
 
         default:;
