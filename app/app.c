@@ -9,60 +9,59 @@ cb(void *ctx) {
 }
 
 struct add_option_ctx {
-    menu_window_t menu_window;
+    menu_window mw;
     option_cb cb;
     void *ctx;
 };
 void
 add_option(void *ctx) {
-    input_window_t input_window = input_window_init(10, 10, 20, "add");
+    input_window iw = input_window_init(10, 10, 20, "add");
     char buff[20];
-    input_window_read(input_window, buff, sizeof buff);
-    input_window_close(input_window);
+    input_window_read(iw, buff, sizeof buff);
+    input_window_close(iw);
 
     struct add_option_ctx _ctx = *((struct add_option_ctx *)ctx);
-    menu_window_add_option(_ctx.menu_window, buff, _ctx.cb, _ctx.ctx);
+    menu_window_add_option(_ctx.mw, buff, _ctx.cb, _ctx.ctx);
 }
 
 void
 delete_option(void *ctx) {
-    input_window_t input_window = input_window_init(10, 10, 20, "delete");
+    input_window iw = input_window_init(10, 10, 20, "delete");
     char buff[20];
-    input_window_read(input_window, buff, sizeof buff);
-    input_window_close(input_window);
+    input_window_read(iw, buff, sizeof buff);
+    input_window_close(iw);
 
-    menu_window_delete_option((menu_window_t)ctx, buff);
+    menu_window_delete_option((menu_window)ctx, buff);
 }
 
 int
 main() {
     ncwrap_init();
 
-    scroll_window_t scroll_window = scroll_window_init(30, 2, 50, 15, "scroll");
-    input_window_t input_window = input_window_init(30, 17, 50, "input");
-    menu_window_t menu_window = menu_window_init(10, 2, 20, 18, "menu");
+    scroll_window sw = scroll_window_init(30, 2, 50, 15, "scroll");
+    input_window iw = input_window_init(30, 17, 50, "input");
+    menu_window mw = menu_window_init(10, 2, 20, 18, "menu");
 
     int cnt = 0;
-    menu_window_add_option(menu_window, "option1", cb, (void *)&cnt);
-    menu_window_add_option(menu_window, "option2", cb, (void *)&cnt);
+    menu_window_add_option(mw, "option1", cb, (void *)&cnt);
+    menu_window_add_option(mw, "option2", cb, (void *)&cnt);
     struct add_option_ctx aoc;
-    aoc.menu_window = menu_window;
+    aoc.mw = mw;
     aoc.cb = cb;
     aoc.ctx = (void *)&cnt;
-    menu_window_add_option(menu_window, "add", add_option, (void *)&aoc);
-    menu_window_add_option(menu_window, "delete", delete_option,
-                           (void *)menu_window);
-    menu_window_start(menu_window);
+    menu_window_add_option(mw, "add", add_option, (void *)&aoc);
+    menu_window_add_option(mw, "delete", delete_option, (void *)mw);
+    menu_window_start(mw);
 
     char buff[60] = "";
     while (strcmp(buff, "exit") != 0) {
-        input_window_read(input_window, buff, sizeof buff);
-        scroll_window_add_line(scroll_window, buff);
+        input_window_read(iw, buff, sizeof buff);
+        scroll_window_add_line(sw, buff);
     }
 
-    input_window_close(input_window);
-    scroll_window_close(scroll_window);
-    menu_window_close(menu_window);
+    input_window_close(iw);
+    scroll_window_close(sw);
+    menu_window_close(mw);
 
     ncwrap_close();
     printf("menu item selected %d times.\n", cnt);

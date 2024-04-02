@@ -8,6 +8,8 @@
 #include "ncurses.h"
 #include "ncwrap_impl.h"
 
+#include "ncwrap.h"
+
 // VISUAL--------------------------------------------
 //    TODO: indicate nothing happened
 //    TODO: enable resize of window
@@ -16,9 +18,8 @@
 
 // BUG-----------------------------------------------
 //    TODO: unrecognised characters (TAB)
-//    TODO: handle multiple menu items with the same name (delete)
+//    TODO: disable menu items with the same name
 //    TODO: RETURN VALUE CHECKING U MORON!!!
-//    TODO: include public header to implementation
 // --------------------------------------------------
 
 // FEATURE-------------------------------------------
