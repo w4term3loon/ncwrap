@@ -14,7 +14,7 @@ typedef struct {
 } scroll_window_t;
 
 typedef struct {
-    char *name;
+    char *label;
     void (*cb)(void *);
     void *ctx;
 } option_t;
@@ -27,6 +27,7 @@ typedef struct {
     int options_num;
 } menu_window_t;
 
-void clear_window_content(WINDOW *window, char *title);
+void
+clear_window_content(WINDOW *window, char *title);
 
 #endif // NCWRAP_IMPL_H_HEADER_GUARD

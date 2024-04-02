@@ -8,30 +8,38 @@
 #include "ncurses.h"
 #include "ncwrap_impl.h"
 
-// --------------------------------------------------
-//    TODO: scroll window line memory management
-//    TODO: possible bugs with unrecognised characters (TAB)
+// VISUAL--------------------------------------------
 //    TODO: indicate nothing happened
 //    TODO: enable resize of window
 //    TODO: add box border art
-//    TODO: introduce thread safety ??
-//    TODO: debug window for internal error messages
-//    TODO: handle multiple menu items with the same name (delete)
-//    TODO: terminal window
-//    BUG:  Conditional jump or move depends on uninitialised value(s) when exit
-//    from menu
-//    BUG:  RETURN VALUE CHECKING U MORON!!!
 // --------------------------------------------------
 
-void menu_window_update(menu_window_t *menu_window, int highlight);
+// BUG-----------------------------------------------
+//    TODO: unrecognised characters (TAB)
+//    TODO: handle multiple menu items with the same name (delete)
+//    TODO: deleting an option from menu should make the highlight stay on the
+//    same option (make highligt an attribute of menu struct)
+//    TODO: RETURN VALUE CHECKING U MORON!!!
+// --------------------------------------------------
 
-void handle_error(const char *ctx) {
+// FEATURE-------------------------------------------
+//    TODO: introduce thread safety ??
+//    TODO: terminal window
+//    TODO: debug window
+// --------------------------------------------------
+
+void
+menu_window_update(menu_window_t *menu_window, int highlight);
+
+void
+handle_error(const char *ctx) {
     (void)fprintf(stderr, "ERROR: ncwrap failed during %s.\n", ctx);
 }
 
 #define ncwrap_error handle_error(__func__)
 
-void ncwrap_init() {
+void
+ncwrap_init() {
     (void)initscr();
     (void)nonl();
     (void)cbreak();
@@ -39,9 +47,13 @@ void ncwrap_init() {
     (void)curs_set(0);
 }
 
-void ncwrap_close() { (void)endwin(); }
+void
+ncwrap_close() {
+    (void)endwin();
+}
 
-input_window_t *input_window_init(int x, int y, int width, const char *title) {
+input_window_t *
+input_window_init(int x, int y, int width, const char *title) {
 
     // this really should not be an input_window_t since there is a variable
     // length string stored after the struct but its fine for now
@@ -68,7 +80,8 @@ input_window_t *input_window_init(int x, int y, int width, const char *title) {
     return input_window;
 }
 
-void input_window_close(input_window_t *input_window) {
+void
+input_window_close(input_window_t *input_window) {
     // delete literal window with library funtion
     delwin(input_window->window);
     // delete my struct and the string after it
@@ -76,7 +89,7 @@ void input_window_close(input_window_t *input_window) {
     input_window = NULL;
 }
 
-void delete(char *buff, size_t buff_siz, int idx) {
+void delete (char *buff, size_t buff_siz, int idx) {
     for (size_t i = 0; i < buff_siz; ++i) {
         if (i >= idx) {
             buff[i] = buff[i + 1];
@@ -84,7 +97,8 @@ void delete(char *buff, size_t buff_siz, int idx) {
     }
 }
 
-void insert(char *buff, size_t buff_siz, int idx, char ch) {
+void
+insert(char *buff, size_t buff_siz, int idx, char ch) {
     for (size_t i = buff_siz - 1; i > idx; --i) {
         if (i > idx) {
             buff[i] = buff[i - 1];
@@ -94,9 +108,8 @@ void insert(char *buff, size_t buff_siz, int idx, char ch) {
     buff[idx] = ch;
 }
 
-// possible bugs with unrecognised characters
-int input_window_read(input_window_t *input_window, char *buff,
-                      size_t buff_siz) {
+int
+input_window_read(input_window_t *input_window, char *buff, size_t buff_siz) {
     // display cursor at the input line
     wmove(input_window->window, 1, 1);
     curs_set(1);
@@ -223,8 +236,8 @@ int input_window_read(input_window_t *input_window, char *buff,
     return buff_siz;
 }
 
-scroll_window_t *scroll_window_init(int x, int y, int width, int height,
-                                    const char *title) {
+scroll_window_t *
+scroll_window_init(int x, int y, int width, int height, const char *title) {
     // store title right after window struct
     scroll_window_t *scroll_window =
         (scroll_window_t *)malloc(sizeof(scroll_window_t) + strlen(title) + 1);
@@ -251,13 +264,15 @@ scroll_window_t *scroll_window_init(int x, int y, int width, int height,
     return scroll_window;
 }
 
-void scroll_window_close(scroll_window_t *scroll_window) {
+void
+scroll_window_close(scroll_window_t *scroll_window) {
     delwin(scroll_window->window);
     free((void *)scroll_window);
     scroll_window = NULL;
 }
 
-void scroll_window_add_line(scroll_window_t *scroll_window, const char *line) {
+void
+scroll_window_add_line(scroll_window_t *scroll_window, const char *line) {
     // displace all lines 1 up (literally)
     scroll(scroll_window->window);
 
@@ -274,8 +289,8 @@ void scroll_window_add_line(scroll_window_t *scroll_window, const char *line) {
     wrefresh(scroll_window->window);
 }
 
-menu_window_t *menu_window_init(int x, int y, int width, int height,
-                                const char *title) {
+menu_window_t *
+menu_window_init(int x, int y, int width, int height, const char *title) {
     // store title right after the struct
     menu_window_t *menu_window =
         (menu_window_t *)malloc(sizeof(menu_window_t) + strlen(title) + 1);
@@ -302,18 +317,20 @@ menu_window_t *menu_window_init(int x, int y, int width, int height,
     return menu_window;
 }
 
-void menu_window_close(menu_window_t *menu_window) {
+void
+menu_window_close(menu_window_t *menu_window) {
     delwin(menu_window->window);
     for (int i = 0; i < menu_window->options_num; ++i) {
-        free((void *)(menu_window->options + i)->name);
+        free((void *)(menu_window->options + i)->label);
     }
     free((void *)menu_window->options);
     free((void *)menu_window);
     menu_window = NULL;
 }
 
-void menu_window_add_option(menu_window_t *menu_window, const char *name,
-                            void (*cb)(void *), void *ctx) {
+void
+menu_window_add_option(menu_window_t *menu_window, const char *label,
+                       void (*cb)(void *), void *ctx) {
     // alocate place for the new option
     option_t *new_options =
         (option_t *)realloc(menu_window->options,
@@ -326,13 +343,13 @@ void menu_window_add_option(menu_window_t *menu_window, const char *name,
 
     // init new option
     option_t *new_option = menu_window->options + menu_window->options_num;
-    new_option->name = (char *)malloc(strlen(name) + 1);
-    if (new_option->name == NULL) {
+    new_option->label = (char *)malloc(strlen(label) + 1);
+    if (new_option->label == NULL) {
         ncwrap_error;
         return;
     }
 
-    (void)strncpy(new_option->name, name, strlen(name) + 1);
+    (void)strncpy(new_option->label, label, strlen(label) + 1);
     new_option->cb = cb;
     new_option->ctx = ctx;
 
@@ -340,16 +357,17 @@ void menu_window_add_option(menu_window_t *menu_window, const char *name,
     menu_window_update(menu_window, 0);
 }
 
-void squash(menu_window_t *menu_window, int option_offset) {
-    // free dynamically allocated name
-    free((void *)(menu_window->options + option_offset)->name);
+void
+squash(menu_window_t *menu_window, int option_offset) {
+    // free dynamically allocated label
+    free((void *)(menu_window->options + option_offset)->label);
     if (option_offset == menu_window->options_num - 1) {
-        return; // realloc will take care of the last element
+        return; //< realloc will take care of the last element
     } else {
         // shift all elements back one place, starting after the offset
         for (int i = option_offset; i < menu_window->options_num - 1; ++i) {
-            (menu_window->options + i)->name =
-                (menu_window->options + i + 1)->name;
+            (menu_window->options + i)->label =
+                (menu_window->options + i + 1)->label;
             (menu_window->options + i)->cb = (menu_window->options + i + 1)->cb;
             (menu_window->options + i)->ctx =
                 (menu_window->options + i + 1)->ctx;
@@ -357,9 +375,10 @@ void squash(menu_window_t *menu_window, int option_offset) {
     }
 }
 
-void menu_window_delete_option(menu_window_t *menu_window, const char *name) {
+void
+menu_window_delete_option(menu_window_t *menu_window, const char *label) {
     for (int i = 0; i < menu_window->options_num; ++i) {
-        if (strcmp((menu_window->options + i)->name, name) == 0) {
+        if (strcmp((menu_window->options + i)->label, label) == 0) {
             squash(menu_window, i);
 
             void *new_options =
@@ -378,7 +397,8 @@ void menu_window_delete_option(menu_window_t *menu_window, const char *name) {
     }
 }
 
-void menu_window_update(menu_window_t *menu_window, int highlight) {
+void
+menu_window_update(menu_window_t *menu_window, int highlight) {
 
     clear_window_content(menu_window->window, menu_window->title);
     for (int i = 0; i < menu_window->options_num; ++i) {
@@ -386,16 +406,17 @@ void menu_window_update(menu_window_t *menu_window, int highlight) {
             wattron(menu_window->window, A_REVERSE);
         }
         mvwprintw(menu_window->window, i + 1, 1, "%s",
-                  (menu_window->options + i)->name);
+                  (menu_window->options + i)->label);
         if (highlight == i) {
             wattroff(menu_window->window, A_REVERSE);
         }
     }
 
-    // wrefresh(menu_window->window);
+    wrefresh(menu_window->window);
 }
 
-void menu_window_start(menu_window_t *menu_window) {
+void
+menu_window_start(menu_window_t *menu_window) {
     int ch;
     int highlight = 0;
     while (true) {
@@ -430,6 +451,7 @@ void menu_window_start(menu_window_t *menu_window) {
 
         case 27:  //< Esc
         case 113: //< q
+            menu_window_update(menu_window, -1);
             goto exit;
 
         default:;
@@ -442,7 +464,8 @@ void menu_window_start(menu_window_t *menu_window) {
     }
 }
 
-void clear_window_content(WINDOW *window, char *title) {
+void
+clear_window_content(WINDOW *window, char *title) {
     werase(window);
     box(window, 0, 0);
     mvwprintw(window, 0, 1, " %s ", title);
