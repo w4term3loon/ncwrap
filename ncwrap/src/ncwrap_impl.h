@@ -1,17 +1,17 @@
 #ifndef NCWRAP_IMPL_H_HEADER_GUARD
 #define NCWRAP_IMPL_H_HEADER_GUARD
 
-typedef struct input_window_t {
+struct input_window {
     char *title;
     WINDOW *window;
     int width;
-} input_window_t;
+};
 
-typedef struct scroll_window_t {
+struct scroll_window {
     char *title;
     WINDOW *window;
     int width, height;
-} scroll_window_t;
+};
 
 typedef struct {
     char *label;
@@ -19,14 +19,14 @@ typedef struct {
     void *ctx;
 } option_t;
 
-typedef struct menu_window_t {
+struct menu_window {
     char *title;
     WINDOW *window;
     int width, height;
     option_t *options;
     int options_num;
     int highlight;
-} menu_window_t;
+};
 
 void
 clear_window_content(WINDOW *window, char *title);

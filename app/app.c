@@ -9,13 +9,13 @@ cb(void *ctx) {
 }
 
 struct add_option_ctx {
-    menu_window mw;
+    menu_window_t mw;
     option_cb cb;
     void *ctx;
 };
 void
 add_option(void *ctx) {
-    input_window iw = input_window_init(10, 10, 20, "add");
+    input_window_t iw = input_window_init(10, 10, 20, "add");
     char buff[20];
     input_window_read(iw, buff, sizeof buff);
     input_window_close(iw);
@@ -26,21 +26,21 @@ add_option(void *ctx) {
 
 void
 delete_option(void *ctx) {
-    input_window iw = input_window_init(10, 10, 20, "delete");
+    input_window_t iw = input_window_init(10, 10, 20, "delete");
     char buff[20];
     input_window_read(iw, buff, sizeof buff);
     input_window_close(iw);
 
-    menu_window_delete_option((menu_window)ctx, buff);
+    menu_window_delete_option((menu_window_t)ctx, buff);
 }
 
 int
 main() {
     ncwrap_init();
 
-    scroll_window sw = scroll_window_init(30, 2, 50, 15, "scroll");
-    input_window iw = input_window_init(30, 17, 50, "input");
-    menu_window mw = menu_window_init(10, 2, 20, 18, "menu");
+    scroll_window_t sw = scroll_window_init(30, 2, 50, 15, "scroll");
+    input_window_t iw = input_window_init(30, 17, 50, "input");
+    menu_window_t mw = menu_window_init(10, 2, 20, 18, "menu");
 
     int cnt = 0;
     menu_window_add_option(mw, "option1", cb, (void *)&cnt);

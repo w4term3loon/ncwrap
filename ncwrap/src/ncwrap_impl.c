@@ -55,41 +55,41 @@ ncwrap_close() {
     (void)endwin();
 }
 
-input_window_t *
+input_window_t
 input_window_init(int x, int y, int width, const char *title) {
 
     // this really should not be an input_window_t since there is a variable
     // length string stored after the struct but its fine for now
-    input_window_t *input_window =
-        (input_window_t *)malloc(sizeof(input_window_t) + strlen(title) + 1);
-    if (input_window == NULL) {
+    input_window_t iw =
+        (input_window_t)malloc(sizeof(struct input_window) + strlen(title) + 1);
+    if (iw == NULL) {
         ncwrap_error;
-        return (input_window_t *)NULL;
+        return (input_window_t)NULL;
     }
 
     // store title right after the window struct
-    input_window->title = (char *)(input_window + 1);
-    (void)strncpy(input_window->title, title, strlen(title) + 1);
+    iw->title = (char *)(iw + 1);
+    (void)strncpy(iw->title, title, strlen(title) + 1);
 
     // create the window entity with fix 3 height
-    input_window->window = newwin(3, width, y, x);
-    input_window->width = width;
+    iw->window = newwin(3, width, y, x);
+    iw->width = width;
 
     // print the input window
-    box(input_window->window, 0, 0);
-    mvwprintw(input_window->window, 0, 1, " %s ", title);
-    wrefresh(input_window->window);
+    box(iw->window, 0, 0);
+    mvwprintw(iw->window, 0, 1, " %s ", title);
+    wrefresh(iw->window);
 
-    return input_window;
+    return iw;
 }
 
 void
-input_window_close(input_window_t *input_window) {
+input_window_close(input_window_t iw) {
     // delete literal window with library funtion
-    delwin(input_window->window);
+    delwin(iw->window);
     // delete my struct and the string after it
-    free((void *)input_window);
-    input_window = NULL;
+    free((void *)iw);
+    iw = NULL;
 }
 
 void delete(char *buff, size_t buff_siz, int idx) {
@@ -107,25 +107,24 @@ insert(char *buff, size_t buff_siz, int idx, char ch) {
             buff[i] = buff[i - 1];
         }
     }
-
     buff[idx] = ch;
 }
 
 int
-input_window_read(input_window_t *input_window, char *buff, size_t buff_siz) {
+input_window_read(input_window_t iw, char *buff, size_t buff_siz) {
     // display cursor at the input line
-    wmove(input_window->window, 1, 1);
+    wmove(iw->window, 1, 1);
     curs_set(1);
-    wrefresh(input_window->window);
+    wrefresh(iw->window);
 
     int scope = 0;
     int next, cursor = 0;
-    int width = input_window->width;
+    int width = iw->width;
     char display[width];
     int capture = 0;
     for (size_t i = 0; i < buff_siz - 1; ++i) {
         capture = 0;
-        next = wgetch(input_window->window);
+        next = wgetch(iw->window);
 
         // disgusting but did not want one more indentation
         if (31 < next && next < 128) {
@@ -153,14 +152,14 @@ input_window_read(input_window_t *input_window, char *buff, size_t buff_siz) {
         case '\r':
         case KEY_ENTER:
             buff[i] = '\0';
-            clear_window_content(input_window->window, input_window->title);
+            clear_window_content(iw->window, iw->title);
             curs_set(0);
             return i + 1;
             break;
 
         case 27: //< escape
-            wgetch(input_window->window);
-            switch (wgetch(input_window->window)) {
+            wgetch(iw->window);
+            switch (wgetch(iw->window)) {
             case 'D': //< left arrow
             case KEY_LEFT:
                 if (cursor != 0) {
@@ -208,161 +207,159 @@ input_window_read(input_window_t *input_window, char *buff, size_t buff_siz) {
         }
 
         buff[i + 1] = '\0';
-        clear_window_content(input_window->window, input_window->title);
+        clear_window_content(iw->window, iw->title);
 
         // only need to display a portion of the buffer
         for (int j = 0; j < width - 1; ++j) {
             display[j] = buff[scope + j];
-            if (j == input_window->width - 2) {
+            if (j == iw->width - 2) {
                 display[j] = '\0';
             };
         }
 
-        mvwprintw(input_window->window, 1, 1, "%s", display);
+        mvwprintw(iw->window, 1, 1, "%s", display);
 
         // left indicator
         if (scope != 0) {
-            mvwprintw(input_window->window, 1, 0, "<");
+            mvwprintw(iw->window, 1, 0, "<");
         }
 
         // right indicator
         if (i - scope + 1 >= width - 2) {
-            mvwprintw(input_window->window, 1, width - 1, ">");
+            mvwprintw(iw->window, 1, width - 1, ">");
         }
 
-        wmove(input_window->window, 1, 1 + cursor);
+        wmove(iw->window, 1, 1 + cursor);
     }
 
-    clear_window_content(input_window->window, input_window->title);
+    clear_window_content(iw->window, iw->title);
     curs_set(0);
 
     return buff_siz;
 }
 
-scroll_window_t *
+scroll_window_t
 scroll_window_init(int x, int y, int width, int height, const char *title) {
     // store title right after window struct
-    scroll_window_t *scroll_window =
-        (scroll_window_t *)malloc(sizeof(scroll_window_t) + strlen(title) + 1);
-    if (scroll_window == NULL) {
+    scroll_window_t sw = (scroll_window_t)malloc(sizeof(struct scroll_window) +
+                                                 strlen(title) + 1);
+    if (sw == NULL) {
         ncwrap_error;
-        return (scroll_window_t *)NULL;
+        return (scroll_window_t)NULL;
     }
 
-    scroll_window->title = (char *)(scroll_window + 1);
-    (void)strncpy(scroll_window->title, title, strlen(title) + 1);
+    sw->title = (char *)(sw + 1);
+    (void)strncpy(sw->title, title, strlen(title) + 1);
 
     // create window
-    scroll_window->window = newwin(height, width, y, x);
-    scroll_window->width = width;
-    scroll_window->height = height;
+    sw->window = newwin(height, width, y, x);
+    sw->width = width;
+    sw->height = height;
 
-    box(scroll_window->window, 0, 0);
-    mvwprintw(scroll_window->window, 0, 1, " %s ", title);
-    wrefresh(scroll_window->window);
+    box(sw->window, 0, 0);
+    mvwprintw(sw->window, 0, 1, " %s ", title);
+    wrefresh(sw->window);
 
     // enable scrolling in this window
-    scrollok(scroll_window->window, TRUE);
+    scrollok(sw->window, TRUE);
 
-    return scroll_window;
+    return sw;
 }
 
 void
-scroll_window_close(scroll_window_t *scroll_window) {
-    delwin(scroll_window->window);
-    free((void *)scroll_window);
-    scroll_window = NULL;
+scroll_window_close(scroll_window_t sw) {
+    delwin(sw->window);
+    free((void *)sw);
+    sw = NULL;
 }
 
 void
-scroll_window_add_line(scroll_window_t *scroll_window, const char *line) {
+scroll_window_add_line(scroll_window_t sw, const char *line) {
     // displace all lines 1 up (literally)
-    scroll(scroll_window->window);
+    scroll(sw->window);
 
     // clear the place of the added line
-    wmove(scroll_window->window, scroll_window->height - 2, 1);
-    wclrtoeol(scroll_window->window);
+    wmove(sw->window, sw->height - 2, 1);
+    wclrtoeol(sw->window);
 
     // print the line in the correct place
-    mvwprintw(scroll_window->window, scroll_window->height - 2, 1, "%s", line);
+    mvwprintw(sw->window, sw->height - 2, 1, "%s", line);
 
     // reconstruct the widnow box
-    box(scroll_window->window, 0, 0);
-    mvwprintw(scroll_window->window, 0, 1, " %s ", scroll_window->title);
-    wrefresh(scroll_window->window);
+    box(sw->window, 0, 0);
+    mvwprintw(sw->window, 0, 1, " %s ", sw->title);
+    wrefresh(sw->window);
 }
 
-menu_window_t *
+menu_window_t
 menu_window_init(int x, int y, int width, int height, const char *title) {
     // store title right after the struct
-    menu_window_t *menu_window =
-        (menu_window_t *)malloc(sizeof(menu_window_t) + strlen(title) + 1);
-    if (menu_window == NULL) {
+    menu_window_t mw =
+        (menu_window_t)malloc(sizeof(struct menu_window) + strlen(title) + 1);
+    if (mw == NULL) {
         ncwrap_error;
-        return (menu_window_t *)NULL;
+        return (menu_window_t)NULL;
     }
 
-    menu_window->title = (char *)(menu_window + 1);
-    (void)strncpy(menu_window->title, title, strlen(title) + 1);
+    mw->title = (char *)(mw + 1);
+    (void)strncpy(mw->title, title, strlen(title) + 1);
 
     // create window
-    menu_window->window = newwin(height, width, y, x);
-    menu_window->width = width;
-    menu_window->height = height;
-    menu_window->options = (option_t *)NULL;
-    menu_window->options_num = 0;
-    menu_window->highlight = 0;
+    mw->window = newwin(height, width, y, x);
+    mw->width = width;
+    mw->height = height;
+    mw->options = (option_t *)NULL;
+    mw->options_num = 0;
+    mw->highlight = 0;
 
     // display menu
-    box(menu_window->window, 0, 0);
-    mvwprintw(menu_window->window, 0, 1, " %s ", title);
-    wrefresh(menu_window->window);
+    box(mw->window, 0, 0);
+    mvwprintw(mw->window, 0, 1, " %s ", title);
+    wrefresh(mw->window);
 
-    return menu_window;
+    return mw;
 }
 
 void
-menu_window_close(menu_window_t *menu_window) {
-    delwin(menu_window->window);
-    for (int i = 0; i < menu_window->options_num; ++i) {
-        free((void *)(menu_window->options + i)->label);
+menu_window_close(menu_window_t mw) {
+    delwin(mw->window);
+    for (int i = 0; i < mw->options_num; ++i) {
+        free((void *)(mw->options + i)->label);
     }
-    free((void *)menu_window->options);
-    free((void *)menu_window);
-    menu_window = NULL;
+    free((void *)mw->options);
+    free((void *)mw);
+    mw = NULL;
 }
 
 void
-menu_window_update(menu_window_t *menu_window) {
-    clear_window_content(menu_window->window, menu_window->title);
-    for (int i = 0; i < menu_window->options_num; ++i) {
-        if (menu_window->highlight == i) {
-            wattron(menu_window->window, A_REVERSE);
+menu_window_update(menu_window_t mw) {
+    clear_window_content(mw->window, mw->title);
+    for (int i = 0; i < mw->options_num; ++i) {
+        if (mw->highlight == i) {
+            wattron(mw->window, A_REVERSE);
         }
-        mvwprintw(menu_window->window, i + 1, 1, "%s",
-                  (menu_window->options + i)->label);
-        if (menu_window->highlight == i) {
-            wattroff(menu_window->window, A_REVERSE);
+        mvwprintw(mw->window, i + 1, 1, "%s", (mw->options + i)->label);
+        if (mw->highlight == i) {
+            wattroff(mw->window, A_REVERSE);
         }
     }
-    wrefresh(menu_window->window);
+    wrefresh(mw->window);
 }
 
 void
-menu_window_add_option(menu_window_t *menu_window, const char *label,
-                       void (*cb)(void *), void *ctx) {
+menu_window_add_option(menu_window_t mw, const char *label, void (*cb)(void *),
+                       void *ctx) {
     // alocate place for the new option
-    option_t *new_options =
-        (option_t *)realloc(menu_window->options,
-                            (menu_window->options_num + 1) * sizeof(option_t));
+    option_t *new_options = (option_t *)realloc(
+        mw->options, (mw->options_num + 1) * sizeof(option_t));
     if (new_options == NULL) {
         ncwrap_error;
         return;
     }
-    menu_window->options = new_options;
+    mw->options = new_options;
 
     // init new option
-    option_t *new_option = menu_window->options + menu_window->options_num;
+    option_t *new_option = mw->options + mw->options_num;
     new_option->label = (char *)malloc(strlen(label) + 1);
     if (new_option->label == NULL) {
         ncwrap_error;
@@ -373,94 +370,91 @@ menu_window_add_option(menu_window_t *menu_window, const char *label,
     new_option->cb = cb;
     new_option->ctx = ctx;
 
-    menu_window->options_num += 1;
-    menu_window_update(menu_window);
+    mw->options_num += 1;
+    menu_window_update(mw);
 }
 
 void
-squash(menu_window_t *menu_window, int option_offset) {
+squash(menu_window_t mw, int option_offset) {
     // free dynamically allocated label
-    free((void *)(menu_window->options + option_offset)->label);
-    if (option_offset == menu_window->options_num - 1) {
+    free((void *)(mw->options + option_offset)->label);
+    if (option_offset == mw->options_num - 1) {
         return; //< realloc will take care of the last element
     } else {
         // shift all elements back one place, starting after the offset
-        for (int i = option_offset; i < menu_window->options_num - 1; ++i) {
-            (menu_window->options + i)->label =
-                (menu_window->options + i + 1)->label;
-            (menu_window->options + i)->cb = (menu_window->options + i + 1)->cb;
-            (menu_window->options + i)->ctx =
-                (menu_window->options + i + 1)->ctx;
+        for (int i = option_offset; i < mw->options_num - 1; ++i) {
+            (mw->options + i)->label = (mw->options + i + 1)->label;
+            (mw->options + i)->cb = (mw->options + i + 1)->cb;
+            (mw->options + i)->ctx = (mw->options + i + 1)->ctx;
         }
     }
 }
 
 void
-menu_window_delete_option(menu_window_t *menu_window, const char *label) {
-    for (int i = 0; i < menu_window->options_num; ++i) {
-        if (strcmp((menu_window->options + i)->label, label) == 0) {
-            squash(menu_window, i);
+menu_window_delete_option(menu_window_t mw, const char *label) {
+    for (int i = 0; i < mw->options_num; ++i) {
+        if (strcmp((mw->options + i)->label, label) == 0) {
+            squash(mw, i);
 
             void *new_options =
-                realloc(menu_window->options,
-                        (menu_window->options_num - 1) * sizeof(option_t));
+                realloc(mw->options, (mw->options_num - 1) * sizeof(option_t));
             if (new_options == NULL) {
                 ncwrap_error;
                 return;
             }
-            menu_window->options = new_options;
+            mw->options = new_options;
 
-            --menu_window->options_num;
+            --mw->options_num;
 
             // adjust highlight
-            if (i <= menu_window->highlight) {
-                --menu_window->highlight;
+            if (i <= mw->highlight) {
+                --mw->highlight;
             }
 
-            menu_window_update(menu_window);
+            menu_window_update(mw);
             break;
         }
     }
 }
 
 void
-menu_window_start(menu_window_t *menu_window) {
+menu_window_start(menu_window_t mw) {
     int ch;
     while (true) {
         while (true) {
-            if (menu_window->highlight >= menu_window->options_num) {
-                --menu_window->highlight;
+            if (mw->highlight >= mw->options_num) {
+                --mw->highlight;
             } else {
                 break;
             }
         }
 
-        menu_window_update(menu_window);
+        menu_window_update(mw);
 
-        ch = wgetch(menu_window->window);
+        ch = wgetch(mw->window);
         switch (ch) {
         case 107: // k
-            if (menu_window->highlight != 0)
-                --menu_window->highlight;
+            if (mw->highlight != 0)
+                --mw->highlight;
             break;
 
         case 106: // j
-            if (menu_window->highlight != menu_window->options_num - 1)
-                ++menu_window->highlight;
+            if (mw->highlight != mw->options_num - 1)
+                ++mw->highlight;
             break;
 
         case '\n':
         case '\r':
         case KEY_ENTER:
-            (menu_window->options + menu_window->highlight)
-                ->cb((menu_window->options + menu_window->highlight)->ctx);
+            (mw->options + mw->highlight)
+                ->cb((mw->options + mw->highlight)->ctx);
             break;
 
         case 27:  //< Esc
         case 113: //< q
             // stop highlighting
-            menu_window->highlight = -1;
-            menu_window_update(menu_window);
+            mw->highlight = -1;
+            menu_window_update(mw);
             goto exit;
 
         default:;
