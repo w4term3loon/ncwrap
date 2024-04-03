@@ -29,6 +29,9 @@ struct menu_window {
 };
 
 void
-clear_window_content(WINDOW *window, char *title);
+window_content_clear(WINDOW *window, char *title);
+
+void
+window_box_blink(WINDOW *window, char *title);
 
 #endif // NCWRAP_IMPL_H_HEADER_GUARD

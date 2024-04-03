@@ -3,6 +3,11 @@
 
 #include <stddef.h>
 
+typedef enum {
+    NCW_OK = 0,
+    NCW_INVALID_PARAM,
+} ncwrap_error;
+
 // input window type
 typedef struct input_window *input_window_t;
 
@@ -41,12 +46,12 @@ void
 input_window_close(input_window_t iw);
 
 /* Read string from input window.
- * @param iw: the target window.
- * @param buff: the buffer to store the string in.
- * @param buff_sz: the size of the read string.
- * @return: TODO.
+ * @param iw[in]: the target window.
+ * @param buff[out]: the buffer to store the C style string in.
+ * @param buff_sz[in]: the size of the read string.
+ * @return: error code.
  */
-int
+ncwrap_error
 input_window_read(input_window_t iw, char *buff, size_t buff_sz);
 
 /* Initialize scroll window with dimensions and title.
@@ -69,8 +74,9 @@ scroll_window_close(scroll_window_t sw);
 /* Add line to the scroll window.
  * @param sw: the target window.
  * @param line: the line to be added to the window.
+ * @return: error code.
  */
-void
+ncwrap_error
 scroll_window_add_line(scroll_window_t sw, const char *line);
 
 // option callback type
