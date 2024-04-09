@@ -18,12 +18,10 @@
 // --------------------------------------------------
 
 // BUG-----------------------------------------------
-//    TODO: unrecognised characters (TAB)
 //    TODO: RETURN VALUE CHECKING U MORON!!!
-//    TODO: wrefresh consistency
-//    TODO: menu window exits to arrow keys
 //    TODO: consistent namespacing (functions 'ncw_' ?)
 //    TODO: menu options can overlap with side of box
+//    TODO: use errors in interface
 // --------------------------------------------------
 
 // FEATURE-------------------------------------------
@@ -39,15 +37,12 @@
 //    TODO: error message box
 // --------------------------------------------------
 
-void
-handle_error(const char *function) {
-    (void)fprintf(stderr, "ERROR: ncwrap failed during %s.\n", function);
-}
-
-#define ncwrap_handle_error handle_error(__func__)
+#define ncwrap_handle_error                                                    \
+    { (void)fprintf(stderr, "ERROR: ncwrap failed during %s.\n", __func__); }
 
 void
 ncwrap_init() {
+    ncwrap_handle_error;
     (void)initscr();
     (void)nonl();
     (void)cbreak();
@@ -468,7 +463,12 @@ menu_window_start(menu_window_t mw) {
                 ->cb((mw->options + mw->highlight)->ctx);
             break;
 
-        case 27:  //< Esc
+        // do nothing for arrow characters
+        case 27:                //< Esc
+            wgetch(mw->window); //< swallow next character
+            wgetch(mw->window); //< A,B,C,D arrow
+            break;
+
         case 113: //< q
             // stop highlighting
             mw->highlight = -1;
