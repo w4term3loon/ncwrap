@@ -22,6 +22,7 @@
 //    TODO: consistent namespacing (functions 'ncw_' ?)
 //    TODO: menu options can overlap with side of box
 //    TODO: use errors in interface
+//    TODO: set visibility on functions
 // --------------------------------------------------
 
 // FEATURE-------------------------------------------
