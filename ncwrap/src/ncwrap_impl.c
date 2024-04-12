@@ -23,6 +23,8 @@
 //    TODO: menu options can overlap with side of box
 //    TODO: use errors in interface
 //    TODO: set visibility on functions
+//    TODO: safe strncpy with guaranteed \0 at the end
+//    TODO: separate: erase window, draw box
 // --------------------------------------------------
 
 // FEATURE-------------------------------------------
@@ -41,78 +43,112 @@
 #define ncwrap_handle_error                                                    \
     { (void)fprintf(stderr, "ERROR: ncwrap failed during %s.\n", __func__); }
 
-void
+ncwrap_error
 ncwrap_init() {
-    ncwrap_handle_error;
-    (void)initscr();
-    (void)nonl();
-    (void)cbreak();
-    (void)noecho();
-    (void)curs_set(0);
-}
 
-void
-ncwrap_close() {
-    (void)endwin();
-}
+    (void)initscr(); /* init ncurses library */
+    (void)nonl();    /* tell ncurses not to do NL->CR/NL on output */
+    (void)cbreak();  /* take input chars one at a time, no wait for \n */
+    (void)echo();    /* echo input - in color */
 
-input_window_t
-input_window_init(int x, int y, int width, const char *title) {
+    (void)curs_set(0); /* set cursor to invisible  */
 
-    // this really should not be an input_window_t since there is a variable
-    // length string stored after the struct but its fine for now
-    input_window_t iw =
-        (input_window_t)malloc(sizeof(struct input_window) + strlen(title) + 1);
-    if (NULL == iw) {
-        ncwrap_handle_error;
-        return (input_window_t)NULL;
-    }
-
-    // store title right after the window struct
-    iw->title = (char *)(iw + 1);
-    (void)strncpy(iw->title, title, strlen(title) + 1);
-
-    // create the window entity with fix 3 height
-    iw->window = newwin(3, width, y, x);
-    iw->width = width;
-
-    // print the input window
-    box(iw->window, 0, 0);
-    mvwprintw(iw->window, 0, 1, " %s ", title);
-    wrefresh(iw->window);
-
-    return iw;
-}
-
-void
-input_window_close(input_window_t iw) {
-    // delete literal window with library funtion
-    delwin(iw->window);
-    // delete my struct and the string after it
-    free((void *)iw);
-    iw = NULL;
-}
-
-void delete(char *buff, size_t buff_siz, int idx) {
-    for (size_t i = 0; i < buff_siz; ++i) {
-        if (i >= idx) {
-            buff[i] = buff[i + 1];
-        }
-    }
-}
-
-void
-insert(char *buff, size_t buff_siz, int idx, char ch) {
-    for (size_t i = buff_siz - 1; i > idx; --i) {
-        if (i > idx) {
-            buff[i] = buff[i - 1];
-        }
-    }
-    buff[idx] = ch;
+    return NCW_OK;
 }
 
 ncwrap_error
-input_window_read(input_window_t iw, char *buff, size_t buff_siz) {
+ncwrap_close() {
+
+    (void)endwin(); /* terminate ncurses library */
+
+    return NCW_OK;
+}
+
+ncwrap_error
+input_window_init(input_window_t *iw, int x, int y, int width,
+                  const char *title) {
+
+    ncwrap_error error = NCW_OK;
+
+    // this really should not be an input_window_t since there is a variable
+    // length string stored after the struct but its fine for now
+    *iw =
+        (input_window_t)malloc(sizeof(struct input_window) + strlen(title) + 1);
+    if (NULL == *iw) {
+        error = NCW_INSUFFICIENT_MEMORY;
+        goto end;
+    }
+
+    // store title right after the window struct
+    (*iw)->title = (char *)(*iw + 1);
+    (void)strncpy((*iw)->title, title, strlen(title) + 1);
+
+    // create the window entity with fix 3 height
+    (*iw)->window = newwin(3, width, y, x);
+    if (NULL == (*iw)->window) {
+        error = NCW_NCURSES_FAIL;
+        goto clean;
+    }
+
+    (*iw)->width = width;
+
+    if (OK != box((*iw)->window, 0, 0)) {
+        error = NCW_NCURSES_FAIL;
+        goto cleanall;
+    }
+
+    if (OK != mvwprintw((*iw)->window, 0, 1, " %s ", title)) {
+        error = NCW_NCURSES_FAIL;
+        goto cleanall;
+    }
+
+    if (OK != wrefresh((*iw)->window)) {
+        error = NCW_NCURSES_FAIL;
+        goto cleanall;
+    }
+
+    goto end;
+
+cleanall:
+    delwin((*iw)->window);
+clean:
+    free((void *)*iw);
+    *iw = NULL;
+end:
+    return error;
+}
+
+ncwrap_error
+input_window_close(input_window_t *iw) {
+    ncwrap_error error = NCW_OK;
+    if (OK != delwin((*iw)->window)) {
+        error = NCW_NCURSES_FAIL;
+    }
+    free((void *)*iw);
+    *iw = NULL;
+    return error;
+}
+
+void delete(char *buf, size_t bufsz, int idx) {
+    for (size_t i = 0; i < bufsz; ++i) {
+        if (i >= idx) {
+            buf[i] = buf[i + 1];
+        }
+    }
+}
+
+void
+insert(char *buf, size_t bufsz, int idx, char ch) {
+    for (size_t i = bufsz - 1; i > idx; --i) {
+        if (i > idx) {
+            buf[i] = buf[i - 1];
+        }
+    }
+    buf[idx] = ch;
+}
+
+ncwrap_error
+input_window_read(input_window_t iw, char *buf, size_t bufsz) {
     // display cursor at the input line
     wmove(iw->window, 1, 1);
     curs_set(1);
@@ -123,7 +159,7 @@ input_window_read(input_window_t iw, char *buff, size_t buff_siz) {
     int width = iw->width;
     char display[width];
     int capture = 0;
-    for (size_t i = 0; i < buff_siz - 1; ++i) {
+    for (size_t i = 0; i < bufsz - 1; ++i) {
         capture = 0;
         next = wgetch(iw->window);
 
@@ -137,7 +173,7 @@ input_window_read(input_window_t iw, char *buff, size_t buff_siz) {
         case KEY_DC:
         case KEY_BACKSPACE:
             if (scope != 0 || cursor != 0) {
-                delete (buff, buff_siz, scope + cursor - 1);
+                delete (buf, bufsz, scope + cursor - 1);
                 if (scope != 0 && (cursor + scope == i || cursor <= width)) {
                     scope -= 1;
                 } else {
@@ -152,7 +188,7 @@ input_window_read(input_window_t iw, char *buff, size_t buff_siz) {
         case '\n': //< return
         case '\r':
         case KEY_ENTER:
-            buff[i] = '\0';
+            buf[i] = '\0';
             window_content_clear(iw->window, iw->title);
             curs_set(0);
             return NCW_OK;
@@ -195,7 +231,7 @@ input_window_read(input_window_t iw, char *buff, size_t buff_siz) {
 
         default:
             if (capture) {
-                insert(buff, buff_siz, scope + cursor, (char)next);
+                insert(buf, bufsz, scope + cursor, (char)next);
                 if (width - 3 == cursor) {
                     scope += 1;
                 } else {
@@ -206,12 +242,12 @@ input_window_read(input_window_t iw, char *buff, size_t buff_siz) {
                 break;
         }
 
-        buff[i + 1] = '\0';
+        buf[i + 1] = '\0';
         window_content_clear(iw->window, iw->title);
 
         // only need to display a portion of the buffer
         for (int j = 0; j < width - 1; ++j) {
-            display[j] = buff[scope + j];
+            display[j] = buf[scope + j];
             if (j == iw->width - 2) {
                 display[j] = '\0';
             };
@@ -238,46 +274,81 @@ input_window_read(input_window_t iw, char *buff, size_t buff_siz) {
     return NCW_OK;
 }
 
-scroll_window_t
-scroll_window_init(int x, int y, int width, int height, const char *title) {
+ncwrap_error
+scroll_window_init(scroll_window_t *sw, int x, int y, int width, int height,
+                   const char *title) {
+
+    ncwrap_error error = NCW_OK;
+
     // store title right after window struct
-    scroll_window_t sw = (scroll_window_t)malloc(sizeof(struct scroll_window) +
-                                                 strlen(title) + 1);
-    if (NULL == sw) {
-        ncwrap_handle_error;
-        return (scroll_window_t)NULL;
+    *sw = (scroll_window_t)malloc(sizeof(struct scroll_window) + strlen(title) +
+                                  1);
+    if (NULL == *sw) {
+        error = NCW_INSUFFICIENT_MEMORY;
+        goto end;
     }
 
-    sw->title = (char *)(sw + 1);
-    (void)strncpy(sw->title, title, strlen(title) + 1);
+    (*sw)->title = (char *)(*sw + 1);
+    (void)strncpy((*sw)->title, title, strlen(title) + 1);
 
     // create window
-    sw->window = newwin(height, width, y, x);
-    sw->width = width;
-    sw->height = height;
+    (*sw)->window = newwin(height, width, y, x);
+    if (NULL == (*sw)->window) {
+        error = NCW_NCURSES_FAIL;
+        goto clean;
+    }
 
-    box(sw->window, 0, 0);
-    mvwprintw(sw->window, 0, 1, " %s ", title);
-    wrefresh(sw->window);
+    (*sw)->width = width;
+    (*sw)->height = height;
+
+    if (OK != box((*sw)->window, 0, 0)) {
+        error = NCW_NCURSES_FAIL;
+        goto cleanall;
+    }
+
+    if (OK != mvwprintw((*sw)->window, 0, 1, " %s ", title)) {
+        error = NCW_NCURSES_FAIL;
+        goto cleanall;
+    }
+
+    if (OK != wrefresh((*sw)->window)) {
+        error = NCW_NCURSES_FAIL;
+        goto cleanall;
+    }
 
     // enable scrolling in this window
-    scrollok(sw->window, TRUE);
+    scrollok((*sw)->window, TRUE);
 
-    return sw;
+    goto end;
+
+cleanall:
+    delwin((*sw)->window);
+clean:
+    free((void *)*sw);
+    *sw = NULL;
+end:
+    return error;
 }
 
-void
-scroll_window_close(scroll_window_t sw) {
-    delwin(sw->window);
-    free((void *)sw);
-    sw = NULL;
+ncwrap_error
+scroll_window_close(scroll_window_t *sw) {
+    ncwrap_error error = NCW_OK;
+    if (OK != delwin((*sw)->window)) {
+        error = NCW_NCURSES_FAIL;
+    }
+    free((void *)*sw);
+    *sw = NULL;
+    return error;
 }
 
 ncwrap_error
 scroll_window_add_line(scroll_window_t sw, const char *line) {
 
+    ncwrap_error error = NCW_OK;
+
     if (NULL == line) {
-        return NCW_INVALID_PARAM;
+        error = NCW_INVALID_PARAM;
+        goto end;
     }
 
     // displace all lines 1 up (literally)
@@ -295,51 +366,86 @@ scroll_window_add_line(scroll_window_t sw, const char *line) {
     mvwprintw(sw->window, 0, 1, " %s ", sw->title);
     wrefresh(sw->window);
 
-    return NCW_OK;
+end:
+    return error;
 }
 
-menu_window_t
-menu_window_init(int x, int y, int width, int height, const char *title) {
+ncwrap_error
+menu_window_init(menu_window_t *mw, int x, int y, int width, int height,
+                 const char *title) {
+
+    ncwrap_error error = NCW_OK;
+
     // store title right after the struct
-    menu_window_t mw =
-        (menu_window_t)malloc(sizeof(struct menu_window) + strlen(title) + 1);
-    if (NULL == mw) {
-        ncwrap_handle_error;
-        return (menu_window_t)NULL;
+    *mw = (menu_window_t)malloc(sizeof(struct menu_window) + strlen(title) + 1);
+    if (NULL == *mw) {
+        error = NCW_INSUFFICIENT_MEMORY;
+        goto end;
     }
 
-    mw->title = (char *)(mw + 1);
-    (void)strncpy(mw->title, title, strlen(title) + 1);
+    (*mw)->title = (char *)(*mw + 1);
+    (void)strncpy((*mw)->title, title, strlen(title) + 1);
 
     // create window
-    mw->window = newwin(height, width, y, x);
-    mw->width = width;
-    mw->height = height;
-    mw->options = (option_t *)NULL;
-    mw->options_num = 0;
-    mw->highlight = 0;
-
-    // display menu
-    box(mw->window, 0, 0);
-    mvwprintw(mw->window, 0, 1, " %s ", title);
-    wrefresh(mw->window);
-
-    return mw;
-}
-
-void
-menu_window_close(menu_window_t mw) {
-    delwin(mw->window);
-    for (int i = 0; i < mw->options_num; ++i) {
-        free((void *)(mw->options + i)->label);
+    (*mw)->window = newwin(height, width, y, x);
+    if (NULL == (*mw)->window) {
+        error = NCW_NCURSES_FAIL;
+        goto clean;
     }
-    free((void *)mw->options);
-    free((void *)mw);
-    mw = NULL;
+
+    (*mw)->width = width;
+    (*mw)->height = height;
+    (*mw)->options = (option_t *)NULL;
+    (*mw)->options_num = 0;
+    (*mw)->highlight = 0;
+
+    if (OK != box((*mw)->window, 0, 0)) {
+        error = NCW_NCURSES_FAIL;
+        goto cleanall;
+    }
+
+    if (OK != mvwprintw((*mw)->window, 0, 1, " %s ", title)) {
+        error = NCW_NCURSES_FAIL;
+        goto cleanall;
+    }
+
+    if (OK != wrefresh((*mw)->window)) {
+        error = NCW_NCURSES_FAIL;
+        goto cleanall;
+    }
+
+    // enable scrolling in this window
+    scrollok((*mw)->window, TRUE);
+
+    goto end;
+
+cleanall:
+    delwin((*mw)->window);
+clean:
+    free((void *)*mw);
+    *mw = NULL;
+end:
+    return error;
 }
 
-void
+ncwrap_error
+menu_window_close(menu_window_t *mw) {
+    ncwrap_error error = NCW_OK;
+    if (OK != delwin((*mw)->window)) {
+        error = NCW_NCURSES_FAIL;
+    }
+    for (int i = 0; i < (*mw)->options_num; ++i) {
+        free((void *)((*mw)->options + i)->label);
+    }
+    free((void *)(*mw)->options);
+    free((void *)*mw);
+    mw = NULL;
+    return error;
+}
+
+ncwrap_error
 menu_window_update(menu_window_t mw) {
+    ncwrap_error error = NCW_OK;
     window_content_clear(mw->window, mw->title);
     for (int i = 0; i < mw->options_num; ++i) {
         if (mw->highlight == i) {
@@ -351,15 +457,18 @@ menu_window_update(menu_window_t mw) {
         }
     }
     wrefresh(mw->window);
+    return error;
 }
 
-void
+ncwrap_error
 menu_window_add_option(menu_window_t mw, const char *label, void (*cb)(void *),
                        void *ctx) {
 
+    ncwrap_error error = NCW_OK;
+
     for (int i = 0; i < mw->options_num; ++i) {
         if (strcmp(mw->options[i].label, label) == 0) {
-            return;
+            return error;
         }
     }
 
@@ -368,7 +477,7 @@ menu_window_add_option(menu_window_t mw, const char *label, void (*cb)(void *),
         mw->options, (mw->options_num + 1) * sizeof(option_t));
     if (NULL == new_options) {
         ncwrap_handle_error;
-        return;
+        return error;
     }
     mw->options = new_options;
 
@@ -377,7 +486,7 @@ menu_window_add_option(menu_window_t mw, const char *label, void (*cb)(void *),
     new_option->label = (char *)malloc(strlen(label) + 1);
     if (NULL == new_option->label) {
         ncwrap_handle_error;
-        return;
+        return error;
     }
 
     (void)strncpy(new_option->label, label, strlen(label) + 1);
@@ -386,6 +495,8 @@ menu_window_add_option(menu_window_t mw, const char *label, void (*cb)(void *),
 
     mw->options_num += 1;
     menu_window_update(mw);
+
+    return error;
 }
 
 void
@@ -404,8 +515,11 @@ squash(menu_window_t mw, int option_offset) {
     }
 }
 
-void
+ncwrap_error
 menu_window_delete_option(menu_window_t mw, const char *label) {
+
+    ncwrap_error error = NCW_OK;
+
     for (int i = 0; i < mw->options_num; ++i) {
         if (strcmp((mw->options + i)->label, label) == 0) {
             squash(mw, i);
@@ -414,7 +528,7 @@ menu_window_delete_option(menu_window_t mw, const char *label) {
                 realloc(mw->options, (mw->options_num - 1) * sizeof(option_t));
             if (NULL == new_options) {
                 ncwrap_handle_error;
-                return;
+                return error;
             }
             mw->options = new_options;
 
@@ -429,10 +543,15 @@ menu_window_delete_option(menu_window_t mw, const char *label) {
             break;
         }
     }
+
+    return error;
 }
 
-void
+ncwrap_error
 menu_window_start(menu_window_t mw) {
+
+    ncwrap_error error = NCW_OK;
+
     int ch;
     while (true) {
         while (true) {
@@ -484,6 +603,8 @@ menu_window_start(menu_window_t mw) {
             break;
         }
     }
+
+    return error;
 }
 
 void

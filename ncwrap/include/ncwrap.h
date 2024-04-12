@@ -4,8 +4,10 @@
 #include <stddef.h>
 
 typedef enum {
-    NCW_OK = 0,
-    NCW_INVALID_PARAM,
+    NCW_OK = 0,              // OK
+    NCW_NCURSES_FAIL,        // ncurses library ran into error (?)
+    NCW_INVALID_PARAM,       // invalid parameter for function
+    NCW_INSUFFICIENT_MEMORY, // application ran out of memory
 } ncwrap_error;
 
 // input window type
@@ -17,14 +19,14 @@ typedef struct scroll_window *scroll_window_t;
 // menu window type
 typedef struct menu_window *menu_window_t;
 
-/* initialize the library
- * always call before the first window call
+/* Initialize the library.
+ * Always call before the first window call.
  */
 ncwrap_error
 ncwrap_init();
 
-/* deinitialize the library
- * always call after the last window call
+/* Deinitialize the library.
+ * Always call after the last window call.
  */
 ncwrap_error
 ncwrap_close();
@@ -38,24 +40,24 @@ ncwrap_close();
  * @return: error code.
  */
 ncwrap_error
-input_window_init(input_window_t iw, int x, int y, int width,
+input_window_init(input_window_t *iw, int x, int y, int width,
                   const char *title);
 
-/* Close input window.
+/* Close input window and set the pointer to NULL.
  * @param iw[in,out]: the window to be closed.
  * @return: error code.
  */
 ncwrap_error
-input_window_close(input_window_t iw);
+input_window_close(input_window_t *iw);
 
 /* Read string from input window.
  * @param iw[in]: the target window.
- * @param buff[out]: the buffer to store the C style string in.
- * @param buff_sz[in]: the size of the read string.
+ * @param buf[out]: the buffer to store the C style string in.
+ * @param bufsz[in]: the size of the read string.
  * @return: error code.
  */
 ncwrap_error
-input_window_read(input_window_t iw, char *buff, size_t buff_sz);
+input_window_read(input_window_t iw, char *buf, size_t bufsz);
 
 /* Initialize scroll window with dimensions and title.
  * @param sw[out]: the initialized window.
@@ -67,15 +69,15 @@ input_window_read(input_window_t iw, char *buff, size_t buff_sz);
  * @return: error code.
  */
 ncwrap_error
-scroll_window_init(scroll_window_t sw, int x, int y, int width, int height,
+scroll_window_init(scroll_window_t *sw, int x, int y, int width, int height,
                    const char *title);
 
-/* Close scroll window.
+/* Close scroll window and set the pointer to NULL.
  * @param sw[in,out]: the target window.
  * @return: error code.
  */
 ncwrap_error
-scroll_window_close(scroll_window_t sw);
+scroll_window_close(scroll_window_t *sw);
 
 /* Add line to the scroll window.
  * @param sw[in]: the target window.
@@ -85,7 +87,7 @@ scroll_window_close(scroll_window_t sw);
 ncwrap_error
 scroll_window_add_line(scroll_window_t sw, const char *line);
 
-// option callback type
+/* Menu window option callback type. */
 typedef void (*option_cb)(void *ctx);
 
 /* Initialize menu window with dimensions and title.
@@ -98,15 +100,15 @@ typedef void (*option_cb)(void *ctx);
  * @return: error code.
  */
 ncwrap_error
-menu_window_init(menu_window_t mw, int x, int y, int width, int height,
+menu_window_init(menu_window_t *mw, int x, int y, int width, int height,
                  const char *title);
 
-/* Close menu window.
+/* Close menu window and set the pointer to NULL.
  * @param mw[in,out]: the target window.
  * @return: error code.
  */
 ncwrap_error
-menu_window_close(menu_window_t mw);
+menu_window_close(menu_window_t *mw);
 
 /* Start event loop in the menu window.
  * @param mw[in]: the target window.
