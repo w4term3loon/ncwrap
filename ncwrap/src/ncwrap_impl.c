@@ -23,6 +23,7 @@
 //    TODO: menu options can overlap with side of box
 //    TODO: use errors in interface
 //    TODO: set visibility on functions
+//    TODO: double pointer window after changing to in param
 // --------------------------------------------------
 
 // FEATURE-------------------------------------------
@@ -93,7 +94,7 @@ input_window_close(input_window_t iw) {
     iw = NULL;
 }
 
-void delete(char *buff, size_t buff_siz, int idx) {
+void delete (char *buff, size_t buff_siz, int idx) {
     for (size_t i = 0; i < buff_siz; ++i) {
         if (i >= idx) {
             buff[i] = buff[i + 1];
