@@ -2,13 +2,14 @@
 #define NCWRAP_H_HEADER_GUARD
 
 #include <stddef.h>
+#include <stdint.h>
 
 typedef enum {
     NCW_OK = 0,              // OK
     NCW_NCURSES_FAIL,        // ncurses library ran into error (?)
     NCW_INVALID_PARAM,       // invalid parameter for function
     NCW_INSUFFICIENT_MEMORY, // application ran out of memory
-} ncwrap_error;
+} ncw_err;
 
 // input window type
 typedef struct input_window *input_window_t;
@@ -22,14 +23,14 @@ typedef struct menu_window *menu_window_t;
 /* Initialize the library.
  * Always call before the first window call.
  */
-ncwrap_error
-ncwrap_init();
+ncw_err
+ncw_init(void);
 
 /* Deinitialize the library.
  * Always call after the last window call.
  */
-ncwrap_error
-ncwrap_close();
+ncw_err
+ncw_close(void);
 
 /* Initialize input window with dimensions and title.
  * @param iw[out]: the initialized window.
@@ -39,16 +40,16 @@ ncwrap_close();
  * @param title[in]: the title of the window.
  * @return: error code.
  */
-ncwrap_error
-input_window_init(input_window_t *iw, int x, int y, int width,
-                  const char *title);
+ncw_err
+ncw_input_window_init(input_window_t *iw, int x, int y, int width,
+                      const char *title);
 
 /* Close input window and set the pointer to NULL.
  * @param iw[in,out]: the window to be closed.
  * @return: error code.
  */
-ncwrap_error
-input_window_close(input_window_t *iw);
+ncw_err
+ncw_input_window_close(input_window_t *iw);
 
 /* Read string from input window.
  * @param iw[in]: the target window.
@@ -56,8 +57,8 @@ input_window_close(input_window_t *iw);
  * @param bufsz[in]: the size of the read string.
  * @return: error code.
  */
-ncwrap_error
-input_window_read(input_window_t iw, char *buf, size_t bufsz);
+ncw_err
+ncw_input_window_read(input_window_t iw, char *buf, size_t bufsz);
 
 /* Initialize scroll window with dimensions and title.
  * @param sw[out]: the initialized window.
@@ -68,24 +69,24 @@ input_window_read(input_window_t iw, char *buf, size_t bufsz);
  * @param title[in]: the title of the window.
  * @return: error code.
  */
-ncwrap_error
-scroll_window_init(scroll_window_t *sw, int x, int y, int width, int height,
-                   const char *title);
+ncw_err
+ncw_scroll_window_init(scroll_window_t *sw, int x, int y, int width, int height,
+                       const char *title);
 
 /* Close scroll window and set the pointer to NULL.
  * @param sw[in,out]: the target window.
  * @return: error code.
  */
-ncwrap_error
-scroll_window_close(scroll_window_t *sw);
+ncw_err
+ncw_scroll_window_close(scroll_window_t *sw);
 
 /* Add line to the scroll window.
  * @param sw[in]: the target window.
  * @param line[in]: the line to be added to the window.
  * @return: error code.
  */
-ncwrap_error
-scroll_window_add_line(scroll_window_t sw, const char *line);
+ncw_err
+ncw_scroll_window_add_line(scroll_window_t sw, const char *line);
 
 /* Menu window option callback type. */
 typedef void (*option_cb)(void *ctx);
@@ -99,23 +100,23 @@ typedef void (*option_cb)(void *ctx);
  * @param title[in]: the title of the window.
  * @return: error code.
  */
-ncwrap_error
-menu_window_init(menu_window_t *mw, int x, int y, int width, int height,
-                 const char *title);
+ncw_err
+ncw_menu_window_init(menu_window_t *mw, int x, int y, int width, int height,
+                     const char *title);
 
 /* Close menu window and set the pointer to NULL.
  * @param mw[in,out]: the target window.
  * @return: error code.
  */
-ncwrap_error
-menu_window_close(menu_window_t *mw);
+ncw_err
+ncw_menu_window_close(menu_window_t *mw);
 
 /* Start event loop in the menu window.
  * @param mw[in]: the target window.
  * @return: error code.
  */
-ncwrap_error
-menu_window_start(menu_window_t mw);
+ncw_err
+ncw_menu_window_start(menu_window_t mw);
 
 /* Add option to the menu window.
  * @param mw[in]: the target window.
@@ -124,16 +125,16 @@ menu_window_start(menu_window_t mw);
  * @param ctx[in]: the context of the callback.
  * @return: error code.
  */
-ncwrap_error
-menu_window_add_option(menu_window_t mw, const char *label, option_cb cb,
-                       void *ctx);
+ncw_err
+ncw_menu_window_add_option(menu_window_t mw, const char *label, option_cb cb,
+                           void *ctx);
 
 /* Delete option from the menu window.
  * @param mw[in]: the target window.
  * @param label[in]: the name of the option.
  * @return: error code.
  */
-ncwrap_error
-menu_window_delete_option(menu_window_t mw, const char *label);
+ncw_err
+ncw_menu_window_delete_option(menu_window_t mw, const char *label);
 
 #endif // NCWRAP_H_HEADER_GUARD

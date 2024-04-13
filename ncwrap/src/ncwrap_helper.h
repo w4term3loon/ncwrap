@@ -3,6 +3,12 @@
 
 #include "ncwrap_impl.h"
 
+char *
+safe_strncpy(char *dst, const char *src, size_t size) {
+    dst[size - 1] = '\0';
+    return strncpy(dst, src, size - 1);
+}
+
 void
 del(char *buf, size_t bufsz, int idx) {
 

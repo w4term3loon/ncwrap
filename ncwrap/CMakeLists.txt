@@ -5,6 +5,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/lib")
 set(ncwrap_src "${CMAKE_CURRENT_SOURCE_DIR}/src/ncwrap_impl.c")
 add_library(ncwrap SHARED ${ncwrap_src})
 target_include_directories(ncwrap PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_compile_options(ncwrap PRIVATE -Wall -Werror -pedantic)
 
 # link to the ncurses library
 find_package(Curses REQUIRED)
