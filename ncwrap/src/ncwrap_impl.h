@@ -28,10 +28,4 @@ struct menu_window {
     int highlight;
 };
 
-void
-window_content_clear(WINDOW *window, char *title);
-
-void
-window_box_blink(WINDOW *window, char *title);
-
 #endif // NCWRAP_IMPL_H_HEADER_GUARD

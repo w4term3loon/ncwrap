@@ -13,10 +13,13 @@ struct add_option_ctx {
     option_cb cb;
     void *ctx;
 };
+
 void
 add_option(void *ctx) {
+
     input_window_t iw = NULL;
     input_window_init(&iw, 10, 10, 20, "add");
+
     char buf[20];
     input_window_read(iw, buf, sizeof buf);
     input_window_close(&iw);
@@ -27,8 +30,10 @@ add_option(void *ctx) {
 
 void
 delete_option(void *ctx) {
+
     input_window_t iw = NULL;
     input_window_init(&iw, 10, 10, 20, "delete");
+
     char buf[20];
     input_window_read(iw, buf, sizeof buf);
     input_window_close(&iw);
@@ -39,10 +44,11 @@ delete_option(void *ctx) {
 int
 main() {
 
-    ncwrap_error error;
+    ncwrap_error error = NCW_OK;
 
     error = ncwrap_init();
     if (error != NCW_OK) {
+        printf("error");
         goto end;
     }
 
@@ -73,34 +79,42 @@ main() {
     if (error != NCW_OK) {
         goto menu;
     }
+
     struct add_option_ctx aoc;
     aoc.mw = mw;
     aoc.cb = cb;
     aoc.ctx = (void *)&cnt;
+
     error = menu_window_add_option(mw, "add", add_option, (void *)&aoc);
     if (error != NCW_OK) {
         goto menu;
     }
+
     error = menu_window_add_option(mw, "delete", delete_option, (void *)mw);
     if (error != NCW_OK) {
         goto menu;
     }
+
     error = menu_window_start(mw);
     if (error != NCW_OK) {
         goto menu;
     }
 
-    char buf[60] = "";
-    while (strcmp(buf, "exit") != 0) {
+    char buf[60];
+
+    do {
+
         error = input_window_read(iw, buf, sizeof buf);
         if (error != NCW_OK) {
             goto menu;
         }
+
         error = scroll_window_add_line(sw, buf);
         if (error != NCW_OK) {
             goto menu;
         }
-    }
+
+    } while (strcmp(buf, "exit") != 0);
 
 menu:
     menu_window_close(&mw);
