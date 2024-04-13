@@ -25,6 +25,11 @@
 
 // FEATURE-------------------------------------------
 //    TODO: add main event loop using nodelay, to draw,input
+//    by defining a common UPDATE and HANDLE callback that all windows
+//    can implement. Update defines how to refresh the window
+//    and handle gets called depending on which window is in focus.
+//    Handle can decide what to do with the character. The main
+//    event loop needs a the wgetch that is non-blocking.
 //    TODO: err code interpreter fuction on interface
 //    TODO: logging with dlt or syslog or stderr
 //    TODO: introduce thread safety ??
