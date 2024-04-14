@@ -32,6 +32,12 @@ ncw_init(void);
 ncw_err
 ncw_close(void);
 
+/* Start event loop.
+ * Always call after all window initialisations.
+ */
+ncw_err
+ncw_start(void);
+
 /* Initialize input window with dimensions and title.
  * @param iw[out]: the initialized window.
  * @param x[in]: the horizontal position of the top-left corner.
@@ -110,13 +116,6 @@ ncw_menu_window_init(menu_window_t *mw, int x, int y, int width, int height,
  */
 ncw_err
 ncw_menu_window_close(menu_window_t *mw);
-
-/* Start event loop in the menu window.
- * @param mw[in]: the target window.
- * @return: error code.
- */
-ncw_err
-ncw_menu_window_start(menu_window_t mw);
 
 /* Add option to the menu window.
  * @param mw[in]: the target window.

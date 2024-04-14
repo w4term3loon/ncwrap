@@ -42,13 +42,12 @@ delete_option(void *ctx) {
 }
 
 int
-main() {
+main(void) {
 
     ncw_err err = NCW_OK;
 
     err = ncw_init();
     if (err != NCW_OK) {
-        printf("err");
         goto end;
     }
 
@@ -58,11 +57,11 @@ main() {
         goto init;
     }
 
-    input_window_t iw = NULL;
-    err = ncw_input_window_init(&iw, 30, 17, 50, "input");
-    if (err != NCW_OK) {
-        goto scroll;
-    }
+    // input_window_t iw = NULL;
+    // err = ncw_input_window_init(&iw, 30, 17, 50, "input");
+    // if (err != NCW_OK) {
+    //     goto scroll;
+    // }
 
     menu_window_t mw = NULL;
     err = ncw_menu_window_init(&mw, 10, 2, 20, 18, "menu");
@@ -75,56 +74,62 @@ main() {
     if (err != NCW_OK) {
         goto menu;
     }
+
     err = ncw_menu_window_add_option(mw, "option2", cb, (void *)&cnt);
     if (err != NCW_OK) {
         goto menu;
     }
 
-    struct add_option_ctx aoc;
-    aoc.mw = mw;
-    aoc.cb = cb;
-    aoc.ctx = (void *)&cnt;
-
-    err = ncw_menu_window_add_option(mw, "add", add_option, (void *)&aoc);
+    err = ncw_start();
     if (err != NCW_OK) {
-        goto menu;
+        goto input;
     }
 
-    err = ncw_menu_window_add_option(mw, "delete", delete_option, (void *)mw);
-    if (err != NCW_OK) {
-        goto menu;
-    }
+    // struct add_option_ctx aoc;
+    // aoc.mw = mw;
+    // aoc.cb = cb;
+    // aoc.ctx = (void *)&cnt;
 
-    err = ncw_menu_window_start(mw);
-    if (err != NCW_OK) {
-        goto menu;
-    }
+    // err = ncw_menu_window_add_option(mw, "add", add_option, (void *)&aoc);
+    // if (err != NCW_OK) {
+    //     goto menu;
+    // }
 
-    char buf[60];
+    // err = ncw_menu_window_add_option(mw, "delete", delete_option, (void
+    // *)mw); if (err != NCW_OK) {
+    //     goto menu;
+    // }
 
-    do {
+    // err = ncw_menu_window_start(mw);
+    // if (err != NCW_OK) {
+    //     goto menu;
+    // }
 
-        err = ncw_input_window_read(iw, buf, sizeof buf);
-        if (err != NCW_OK) {
-            goto menu;
-        }
+    // char buf[60];
 
-        err = ncw_scroll_window_add_line(sw, buf);
-        if (err != NCW_OK) {
-            goto menu;
-        }
+    // do {
 
-    } while (strcmp(buf, "exit") != 0);
+    //     err = ncw_input_window_read(iw, buf, sizeof buf);
+    //     if (err != NCW_OK) {
+    //         goto menu;
+    //     }
+
+    //     err = ncw_scroll_window_add_line(sw, buf);
+    //     if (err != NCW_OK) {
+    //         goto menu;
+    //     }
+
+    // } while (strcmp(buf, "exit") != 0);
 
 menu:
     ncw_menu_window_close(&mw);
 input:
-    ncw_input_window_close(&iw);
+    // ncw_input_window_close(&iw);
 scroll:
     ncw_scroll_window_close(&sw);
 init:
     ncw_close();
-    printf("menu item selected %d times.\n", cnt);
+    // printf("menu item selected %d times.\n", cnt);
 end:
     return err;
 }

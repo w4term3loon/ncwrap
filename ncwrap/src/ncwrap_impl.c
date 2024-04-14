@@ -1,17 +1,3 @@
-#include <math.h>
-#include <pthread.h>
-#include <stdarg.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-
-#include "ncurses.h"
-
-#include "ncwrap.h"
-
-#include "ncwrap_helper.h"
-#include "ncwrap_impl.h"
-
 // VISUAL--------------------------------------------
 //    TODO: indicate nothing happened input window (retval?)
 //    TODO: indicate nothing happened menu window (retval?)
@@ -20,7 +6,10 @@
 // --------------------------------------------------
 
 // BUG-----------------------------------------------
+//    TODO: separate different type of widnows into different files
 //    TODO: set visibility on functions
+//    TODO: refresh optimization
+//    https://www.man7.org/linux/man-pages/man3/curs_refresh.3x.html
 // --------------------------------------------------
 
 // FEATURE-------------------------------------------
@@ -30,6 +19,7 @@
 //    and handle gets called depending on which window is in focus.
 //    Handle can decide what to do with the character. The main
 //    event loop needs a the wgetch that is non-blocking.
+//    each window has an update callback that is registered when INIT
 //    TODO: err code interpreter fuction on interface
 //    TODO: logging with dlt or syslog or stderr
 //    TODO: introduce thread safety ??
@@ -45,6 +35,20 @@
 //    TODO: err message box
 // --------------------------------------------------
 
+#include <math.h>
+#include <pthread.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+#include "ncurses.h"
+
+#include "ncwrap.h"
+
+#include "ncwrap_helper.h"
+#include "ncwrap_impl.h"
+
 ncw_err
 ncw_init(void) {
 
@@ -53,6 +57,11 @@ ncw_init(void) {
     /* init ncurses library */
     stdscr = initscr();
     if (NULL == stdscr) {
+        goto fail;
+    }
+
+    /* refresh the main screen */
+    if (ERR == refresh()) {
         goto fail;
     }
 
@@ -66,13 +75,13 @@ ncw_init(void) {
         goto fail;
     }
 
-    /* echo input - in color */
-    if (OK != echo()) {
+    /* set cursor to invisible  */
+    if (ERR == curs_set(0)) {
         goto fail;
     }
 
-    /* set cursor to invisible  */
-    if (ERR == curs_set(0)) {
+    /* disble echo to windows */
+    if (OK != noecho()) {
         goto fail;
     }
 
@@ -100,6 +109,28 @@ end:
 fail:
     err = NCW_NCURSES_FAIL;
     goto end;
+}
+
+static update s_update[10];
+static handler s_handler[10];
+
+ncw_err
+ncw_start(void) {
+
+    int event = 0;
+    while (1) {
+
+        s_update[0].cb(s_update[0].ctx);
+        s_update[1].cb(s_update[1].ctx);
+
+        event = wgetch(stdscr);
+        if (event == CTRL('q')) {
+            break;
+        }
+        s_handler[0].cb(event, s_handler[0].ctx);
+    }
+
+    return NCW_OK;
 }
 
 ncw_err
@@ -185,6 +216,10 @@ ncw_input_window_read(input_window_t iw, char *buf, size_t bufsz) {
     if (NULL == buf || 0 == bufsz) {
         err = NCW_INVALID_PARAM;
         goto end;
+    }
+
+    if (OK != window_draw_box(iw->window, iw->title)) {
+        goto fail;
     }
 
     int scope = 0;
@@ -293,7 +328,7 @@ ncw_input_window_read(input_window_t iw, char *buf, size_t bufsz) {
             goto fail;
         }
 
-        // only need to display a portion of the bmffer
+        // only need to display a portion of the buffer
         for (int j = 0; j < width - 1; ++j) {
             display[j] = buf[scope + j];
             if (j == iw->width - 2) {
@@ -341,6 +376,9 @@ fail:
 }
 
 ncw_err
+scroll_window_update(void *window_ctx);
+
+ncw_err
 ncw_scroll_window_init(scroll_window_t *sw, int x, int y, int width, int height,
                        const char *title) {
 
@@ -371,20 +409,23 @@ ncw_scroll_window_init(scroll_window_t *sw, int x, int y, int width, int height,
 
     (*sw)->width = width;
     (*sw)->height = height;
+    (*sw)->next_line = NULL;
 
-    if (OK != window_draw_box((*sw)->window, title)) {
-        err = NCW_NCURSES_FAIL;
-        goto cleanall;
-    }
+    // register update callback to event loop
+    // register_update(menu_window_update, mw);
+    s_update[1].cb = scroll_window_update;
+    s_update[1].ctx = sw;
+
+    // register handler callback to event loop
+    // register_handler(menu_window_handler, mw);
+    s_handler[1].cb = NULL;
+    s_handler[1].ctx = NULL;
 
     // enable scrolling in this window
     scrollok((*sw)->window, TRUE);
 
 end:
     return err;
-
-cleanall:
-    delwin((*sw)->window);
 
 clean:
     free((void *)*sw);
@@ -402,6 +443,11 @@ ncw_scroll_window_close(scroll_window_t *sw) {
         goto end;
     }
 
+    if (OK != window_clear((*sw)->window)) {
+        err = NCW_INVALID_PARAM;
+        goto end;
+    }
+
     if (OK != delwin((*sw)->window)) {
         err = NCW_NCURSES_FAIL;
         goto end;
@@ -415,13 +461,14 @@ end:
 }
 
 ncw_err
-ncw_scroll_window_add_line(scroll_window_t sw, const char *line) {
+scroll_window_update(void *window_ctx) {
 
     ncw_err err = NCW_OK;
+    scroll_window_t sw = *((scroll_window_t *)window_ctx);
 
-    if (NULL == line) {
-        err = NCW_INVALID_PARAM;
-        goto end;
+    // if there is no new next line, skip
+    if (NULL == sw->next_line) {
+        goto skip;
     }
 
     // displace all lines 1 up (literally)
@@ -439,10 +486,15 @@ ncw_scroll_window_add_line(scroll_window_t sw, const char *line) {
     }
 
     // print the line in the correct place
-    if (OK != mvwprintw(sw->window, sw->height - 2, 1, "%s", line)) {
+    if (OK != mvwprintw(sw->window, sw->height - 2, 1, "%s", sw->next_line)) {
         goto fail;
     }
 
+    // free next line for new one
+    free((void *)sw->next_line);
+    sw->next_line = NULL;
+
+skip:
     // reconstruct the widnow box
     if (OK != window_draw_box(sw->window, sw->title)) {
         goto fail;
@@ -455,6 +507,24 @@ fail:
     err = NCW_NCURSES_FAIL;
     goto end;
 }
+
+ncw_err
+ncw_scroll_window_add_line(scroll_window_t sw, const char *line) {
+
+    sw->next_line = (char *)malloc(strlen(line) + 1);
+    if (NULL == sw->next_line) {
+        return NCW_INSUFFICIENT_MEMORY;
+    }
+    (void)safe_strncpy(sw->next_line, line, strlen(line) + 1);
+
+    return NCW_OK;
+}
+
+ncw_err
+menu_window_update(void *window_ctx);
+
+ncw_err
+menu_window_handler(int event, void *window_ctx);
 
 ncw_err
 ncw_menu_window_init(menu_window_t *mw, int x, int y, int width, int height,
@@ -490,16 +560,18 @@ ncw_menu_window_init(menu_window_t *mw, int x, int y, int width, int height,
     (*mw)->options_num = 0;
     (*mw)->highlight = 0;
 
-    if (OK != window_draw_box((*mw)->window, title)) {
-        err = NCW_NCURSES_FAIL;
-        goto cleanall;
-    }
+    // register update callback to event loop
+    // register_update(menu_window_update, mw);
+    s_update[0].cb = menu_window_update;
+    s_update[0].ctx = mw;
+
+    // register handler callback to event loop
+    // register_handler(menu_window_handler, mw);
+    s_handler[0].cb = menu_window_handler;
+    s_handler[0].ctx = mw;
 
 end:
     return err;
-
-cleanall:
-    delwin((*mw)->window);
 
 clean:
     free((void *)*mw);
@@ -516,6 +588,13 @@ ncw_menu_window_close(menu_window_t *mw) {
         err = NCW_INVALID_PARAM;
         goto end;
     }
+
+    // if (OK != window_clear((*mw)->window)) {
+    //     err = NCW_NCURSES_FAIL;
+    //     goto end;
+    // }
+
+    // unregister_update(mw(?))
 
     if (OK != delwin((*mw)->window)) {
         err = NCW_NCURSES_FAIL;
@@ -535,9 +614,10 @@ end:
 }
 
 ncw_err
-menu_window_update(menu_window_t mw) {
+menu_window_update(void *window_ctx) {
 
     ncw_err err = NCW_OK;
+    menu_window_t mw = *((menu_window_t *)window_ctx);
 
     if (OK != window_content_clear(mw->window, mw->title)) {
         goto fail;
@@ -617,8 +697,6 @@ ncw_menu_window_add_option(menu_window_t mw, const char *label,
 
     mw->options_num += 1;
 
-    err = menu_window_update(mw);
-
 end:
     return err;
 }
@@ -653,7 +731,6 @@ ncw_menu_window_delete_option(menu_window_t mw, const char *label) {
                 --mw->highlight;
             }
 
-            err = menu_window_update(mw);
             goto end;
         }
     }
@@ -663,60 +740,51 @@ end:
 }
 
 ncw_err
-ncw_menu_window_start(menu_window_t mw) {
+menu_window_handler(int event, void *window_ctx) {
 
     ncw_err err = NCW_OK;
+    menu_window_t mw = *((menu_window_t *)window_ctx);
 
-    int ch;
+    // TODO: move to add and delete
+    /* adjust highlighting */
     while (true) {
-        while (true) {
-            if (mw->highlight >= mw->options_num) {
-                --mw->highlight;
-            } else {
-                break;
-            }
-        }
-
-        err = menu_window_update(mw);
-        if (err != NCW_OK) {
-            goto end;
-        }
-
-        ch = wgetch(mw->window);
-        switch (ch) {
-        case 107: //< k
-            if (mw->highlight != 0)
-                --mw->highlight;
+        if (mw->highlight >= mw->options_num) {
+            --mw->highlight;
+        } else {
             break;
-
-        case 106: //< j
-            if (mw->highlight != mw->options_num - 1)
-                ++mw->highlight;
-            break;
-
-        case '\n':
-        case '\r':
-        case KEY_ENTER:
-            (mw->options + mw->highlight)
-                ->cb((mw->options + mw->highlight)->ctx);
-            break;
-
-        // do nothing for arrow characters
-        case 27:                //< Esc
-            wgetch(mw->window); //< swallow next character
-            wgetch(mw->window); //< A,B,C,D arrow
-            break;
-
-        case 113: //< q
-            // stop highlighting
-            mw->highlight = -1;
-            err = menu_window_update(mw);
-            goto end;
-
-        default:;
         }
     }
 
-end:
+    switch (event) {
+    case 107: //< k
+        if (mw->highlight != 0)
+            --mw->highlight;
+        break;
+
+    case 106: //< j
+        if (mw->highlight != mw->options_num - 1)
+            ++mw->highlight;
+        break;
+
+    case '\n':
+    case '\r':
+    case KEY_ENTER:
+        (mw->options + mw->highlight)->cb((mw->options + mw->highlight)->ctx);
+        break;
+
+        // do nothing for arrow characters
+        // case 27:                //< Esc
+        //     wgetch(mw->window); //< swallow next character
+        //     wgetch(mw->window); //< A,B,C,D arrow
+        //     break;
+
+    case 113: //< q
+        // stop highlighting
+        mw->highlight = -1;
+        break;
+
+    default:;
+    }
+
     return err;
 }

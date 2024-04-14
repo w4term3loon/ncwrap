@@ -3,6 +3,10 @@
 
 #include "ncwrap_impl.h"
 
+#ifndef CTRL
+#define CTRL(c) ((c) & 037)
+#endif
+
 char *
 safe_strncpy(char *dst, const char *src, size_t size) {
     dst[size - 1] = '\0';
