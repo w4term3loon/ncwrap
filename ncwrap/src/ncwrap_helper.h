@@ -7,6 +7,11 @@
 #define CTRL(c) ((c) & 037)
 #endif
 
+#define _BUFSZ 50
+#define _BUFSZMAX 150
+
+typedef int token;
+
 char *
 safe_strncpy(char *dst, const char *src, size_t size) {
     dst[size - 1] = '\0';
@@ -27,6 +32,7 @@ void
 ins(char *buf, size_t bufsz, int idx, char ch) {
 
     for (size_t i = bufsz - 1; i > idx; --i) {
+        printf("%zu", i);
         if (i > idx) {
             buf[i] = buf[i - 1];
         }

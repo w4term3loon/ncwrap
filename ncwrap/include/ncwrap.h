@@ -57,14 +57,17 @@ ncw_input_window_init(input_window_t *iw, int x, int y, int width,
 ncw_err
 ncw_input_window_close(input_window_t *iw);
 
-/* Read string from input window.
+/* Input window output callback type. */
+typedef void (*output_cb)(char *buf, size_t bufsz, void *ctx);
+
+/* Set output for input window event.
  * @param iw[in]: the target window.
- * @param buf[out]: the buffer to store the C style string in.
- * @param bufsz[in]: the size of the read string.
+ * @param output_cb[in]: the callback which is called when line is read.
+ * @param ctx[in]: the context for the callback.
  * @return: error code.
  */
 ncw_err
-ncw_input_window_read(input_window_t iw, char *buf, size_t bufsz);
+ncw_input_window_set_output(input_window_t iw, output_cb cb, void *ctx);
 
 /* Initialize scroll window with dimensions and title.
  * @param sw[out]: the initialized window.

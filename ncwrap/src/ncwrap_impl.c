@@ -6,6 +6,7 @@
 // --------------------------------------------------
 
 // BUG-----------------------------------------------
+//    TODO: menu window refresh only if needed (glitches)
 //    TODO: separate different type of widnows into different files
 //    TODO: set visibility on functions
 //    TODO: refresh optimization
@@ -48,6 +49,8 @@
 
 #include "ncwrap_helper.h"
 #include "ncwrap_impl.h"
+
+static window_t *_window;
 
 ncw_err
 ncw_init(void) {
@@ -111,27 +114,36 @@ fail:
     goto end;
 }
 
-static update s_update[10];
-static handler s_handler[10];
+window_t *
+_window_register(update_t update, handler_t handler) {
+    return NULL;
+}
+
+void
+_window_unregister(window_t *window_handle) {}
 
 ncw_err
 ncw_start(void) {
 
+    (void)_window;
+
     int event = 0;
     while (1) {
 
-        s_update[0].cb(s_update[0].ctx);
-        s_update[1].cb(s_update[1].ctx);
-
         event = wgetch(stdscr);
-        if (event == CTRL('q')) {
+        if (event == CTRL('x')) {
             break;
         }
-        s_handler[0].cb(event, s_handler[0].ctx);
     }
 
     return NCW_OK;
 }
+
+ncw_err
+input_window_update(void *window_ctx);
+
+ncw_err
+input_window_handler(int event, void *window_ctx);
 
 ncw_err
 ncw_input_window_init(input_window_t *iw, int x, int y, int width,
@@ -166,16 +178,28 @@ ncw_input_window_init(input_window_t *iw, int x, int y, int width,
 
     (*iw)->width = width;
 
-    if (OK != window_draw_box((*iw)->window, title)) {
-        err = NCW_NCURSES_FAIL;
-        goto cleanall;
+    // set output
+    (*iw)->cb = NULL;
+    (*iw)->ctx = NULL;
+
+    (*iw)->buf = (char *)malloc(_BUFSZ);
+    if (NULL == (*iw)->buf) {
+        return NCW_INSUFFICIENT_MEMORY;
     }
+    (*iw)->bufsz = _BUFSZ;
+
+    (*iw)->linesz = 0;
+    (*iw)->display_offs = 0;
+    (*iw)->cursor_offs = 0;
+
+    update_t update = {.cb = input_window_update, .ctx = (void *)iw};
+    handler_t handler = {.cb = input_window_handler, .ctx = (void *)iw};
+
+    // register window for the event handler
+    _window_register(update, handler);
 
 end:
     return err;
-
-cleanall:
-    delwin((*iw)->window);
 
 clean:
     free((void *)*iw);
@@ -193,6 +217,11 @@ ncw_input_window_close(input_window_t *iw) {
         goto end;
     }
 
+    if (OK != window_clear((*iw)->window)) {
+        err = NCW_NCURSES_FAIL;
+        goto end;
+    }
+
     if (OK != delwin((*iw)->window)) {
         err = NCW_NCURSES_FAIL;
         goto end;
@@ -206,173 +235,203 @@ end:
 }
 
 ncw_err
-ncw_input_window_read(input_window_t iw, char *buf, size_t bufsz) {
+ncw_input_window_set_output(input_window_t iw, output_cb cb, void *ctx) {
+
+    if (NULL == cb || NULL == ctx) {
+        return NCW_INVALID_PARAM;
+    }
+
+    iw->cb = cb;
+    iw->ctx = ctx;
+
+    return NCW_OK;
+}
+
+ncw_err
+input_window_update(void *window_ctx) {
 
     ncw_err err = NCW_OK;
+    input_window_t iw = *((input_window_t *)window_ctx);
 
-    int width = iw->width;
-    char display[width];
+    char display[iw->width];
 
-    if (NULL == buf || 0 == bufsz) {
-        err = NCW_INVALID_PARAM;
-        goto end;
-    }
-
-    if (OK != window_draw_box(iw->window, iw->title)) {
+    if (OK != window_content_clear(iw->window, iw->title)) {
         goto fail;
     }
 
-    int scope = 0;
-    int next, cursor = 0;
-    int capture = 0;
+    // only need to display a portion of the buffer
+    for (int j = 0; j < iw->width - 1; ++j) {
+        display[j] = iw->buf[iw->display_offs + j];
+        if (j == iw->width - 2) {
+            display[j] = '\0';
+        };
+    }
 
-    // display cursor at the input line
-    if (OK != wmove(iw->window, 1, 1)) {
+    // print the portion that should be visible
+    if (OK != mvwprintw(iw->window, 1, 1, "%s", display)) {
         goto fail;
     }
 
-    if (ERR == curs_set(1)) {
-        err = NCW_NCURSES_FAIL;
+    // left indicator
+    if (iw->display_offs != 0) {
+        if (OK != mvwprintw(iw->window, 1, 0, "<")) {
+            goto fail;
+        }
+    }
+
+    // right indicator
+    if (iw->linesz - iw->display_offs + 1 >= iw->width - 2) {
+        if (OK != mvwprintw(iw->window, 1, iw->width - 1, ">")) {
+            goto fail;
+        }
+    }
+
+    // move the cursor to the appropriate position
+    if (OK != wmove(iw->window, 1, 1 + iw->cursor_offs)) {
         goto fail;
     }
 
     if (OK != wrefresh(iw->window)) {
-        err = NCW_NCURSES_FAIL;
         goto fail;
     }
 
-    for (size_t i = 0; i < bufsz - 1; ++i) {
-        capture = 0;
-        next = wgetch(iw->window);
-
-        // disgusting but did not want one more indentation
-        if (31 < next && next < 128) {
-            ++capture;
-        }
-
-        switch (next) {
-        case 127: //< backspace
-        case KEY_DC:
-        case KEY_BACKSPACE:
-            if (scope != 0 || cursor != 0) {
-                del(buf, bufsz, scope + cursor - 1);
-                if (scope != 0 && (cursor + scope == i || cursor <= width)) {
-                    scope -= 1;
-                } else {
-                    cursor -= 1;
-                }
-                i -= 2;
-            } else {
-                --i; //< indicate nothing happened
-            }
-            break;
-
-        case '\n': //< return
-        case '\r':
-        case KEY_ENTER:
-            buf[i] = '\0';
-            goto clean;
-
-        case 27: //< escape
-            wgetch(iw->window);
-            switch (wgetch(iw->window)) {
-            case 'D': //< left arrow
-            case KEY_LEFT:
-                if (cursor != 0) {
-                    cursor -= 1;
-                } else {
-                    if (scope != 0) {
-                        scope -= 1;
-                    }
-                }
-                break;
-
-            case 'C': //< right arrow
-            case KEY_RIGHT:
-                if (cursor != width - 3) {
-                    if (cursor < i) {
-                        cursor += 1;
-                    }
-                } else if (cursor + scope != i) {
-                    scope += 1;
-                }
-                break;
-
-            case 'A': //< up arrow
-            case 'B': //< down arrow
-            case KEY_UP:
-            case KEY_DOWN:
-                break;
-
-            default:;
-            }
-            --i;
-            break;
-
-        default:
-            if (capture) {
-                ins(buf, bufsz, scope + cursor, (char)next);
-                if (width - 3 == cursor) {
-                    scope += 1;
-                } else {
-                    cursor += 1;
-                }
-
-            } else
-                break;
-        }
-
-        buf[i + 1] = '\0';
-
-        if (OK != window_content_clear(iw->window, iw->title)) {
-            goto fail;
-        }
-
-        // only need to display a portion of the buffer
-        for (int j = 0; j < width - 1; ++j) {
-            display[j] = buf[scope + j];
-            if (j == iw->width - 2) {
-                display[j] = '\0';
-            };
-        }
-
-        // print the portion that should be visible
-        if (OK != mvwprintw(iw->window, 1, 1, "%s", display)) {
-            goto fail;
-        }
-
-        // left indicator
-        if (scope != 0) {
-            if (OK != mvwprintw(iw->window, 1, 0, "<")) {
-                goto fail;
-            }
-        }
-
-        // right indicator
-        if (i - scope + 1 >= width - 2) {
-            if (OK != mvwprintw(iw->window, 1, width - 1, ">")) {
-                goto fail;
-            }
-        }
-
-        // move the cursor to the appropriate position
-        if (OK != wmove(iw->window, 1, 1 + cursor)) {
-            goto fail;
-        }
-    }
-
-clean:
-    if (OK != window_clear(iw->window)) {
+    if (ERR == curs_set(1)) {
         goto fail;
     }
 
 end:
-    curs_set(0);
     return err;
 
 fail:
     err = NCW_NCURSES_FAIL;
     goto end;
+}
+
+ncw_err
+input_window_handler(int event, void *window_ctx) {
+
+    ncw_err err = NCW_OK;
+    input_window_t iw = *((input_window_t *)window_ctx);
+
+    if (NULL == iw->buf) {
+        goto end;
+    }
+
+    // ignore control ascii
+    if (event < 32 || event > 127) {
+        goto end;
+    }
+
+    if (iw->linesz == iw->bufsz - 1) {
+        if (iw->linesz < _BUFSZMAX) {
+
+            char tmp[iw->bufsz];
+            (void)safe_strncpy(tmp, iw->buf, iw->bufsz);
+
+            iw->buf = realloc(iw->buf, iw->bufsz);
+            if (NULL == iw->buf) {
+                err = NCW_INSUFFICIENT_MEMORY;
+                goto end;
+            }
+        } else {
+            goto end;
+        }
+    }
+
+    switch (event) {
+    case 127: //< backspace
+    case KEY_DC:
+    case KEY_BACKSPACE:
+
+        // if there are characters before the cursor that can be deleted
+        if (iw->display_offs != 0 || iw->cursor_offs != 0) {
+
+            del(iw->buf, iw->bufsz, iw->display_offs + iw->cursor_offs - 1);
+
+            if (iw->display_offs != 0 &&
+                (iw->cursor_offs + iw->display_offs == iw->linesz ||
+                 iw->cursor_offs <= iw->width)) {
+
+                iw->display_offs -= 1;
+
+            } else {
+                iw->cursor_offs -= 1;
+            }
+
+            iw->linesz -= 2;
+
+        } else { /* indicate nothing happened */
+        }
+
+        break;
+
+    case '\n': //< return
+    case '\r':
+    case KEY_ENTER:
+
+        iw->buf[iw->linesz] = '\0';
+
+        iw->cb(iw->buf, iw->bufsz, iw->ctx);
+        free((void *)iw->buf);
+        iw->buf = NULL;
+        iw->bufsz = 0;
+        iw->linesz = 0;
+        iw->display_offs = 0;
+        iw->cursor_offs = 0;
+
+        break;
+
+        // case 27: //< escape
+        //     wgetch(iw->window);
+        //     switch (wgetch(iw->window)) {
+        //     case 'D': //< left arrow
+        //     case KEY_LEFT:
+        //         if (iw->cursor_offs != 0) {
+        //             iw->cursor_offs -= 1;
+        //         } else {
+        //             if (iw->display_offs != 0) {
+        //                 iw->display_offs -= 1;
+        //             }
+        //         }
+        //         break;
+
+        //     case 'C': //< right arrow
+        //     case KEY_RIGHT:
+        //         if (iw->cursor_offs != width - 3) {
+        //             if (iw->cursor_offs < i) {
+        //                 iw->cursor_offs += 1;
+        //             }
+        //         } else if (iw->cursor_offs + iw->display_offs != i) {
+        //             iw->display_offs += 1;
+        //         }
+        //         break;
+
+        //     case 'A': //< up arrow
+        //     case 'B': //< down arrow
+        //     case KEY_UP:
+        //     case KEY_DOWN:
+        //         break;
+
+        //     default:;
+        //     }
+        //     --i;
+        //     break;
+
+    default:
+        printf("kaka\n");
+
+        ins(iw->buf, iw->bufsz, iw->display_offs + iw->cursor_offs,
+            (char)event);
+
+        if (iw->width - 1 == iw->cursor_offs) {
+            iw->display_offs += -1;
+        } else {
+            iw->cursor_offs += -1;
+        }
+    }
+
+end:
+    return err;
 }
 
 ncw_err
@@ -411,15 +470,11 @@ ncw_scroll_window_init(scroll_window_t *sw, int x, int y, int width, int height,
     (*sw)->height = height;
     (*sw)->next_line = NULL;
 
-    // register update callback to event loop
-    // register_update(menu_window_update, mw);
-    s_update[1].cb = scroll_window_update;
-    s_update[1].ctx = sw;
+    update_t update = {.cb = scroll_window_update, .ctx = (void *)sw};
+    handler_t handler = {.cb = NULL, .ctx = NULL};
 
-    // register handler callback to event loop
-    // register_handler(menu_window_handler, mw);
-    s_handler[1].cb = NULL;
-    s_handler[1].ctx = NULL;
+    // register window for the event handler
+    _window_register(update, handler);
 
     // enable scrolling in this window
     scrollok((*sw)->window, TRUE);
@@ -560,15 +615,11 @@ ncw_menu_window_init(menu_window_t *mw, int x, int y, int width, int height,
     (*mw)->options_num = 0;
     (*mw)->highlight = 0;
 
-    // register update callback to event loop
-    // register_update(menu_window_update, mw);
-    s_update[0].cb = menu_window_update;
-    s_update[0].ctx = mw;
+    update_t update = {.cb = menu_window_update, .ctx = (void *)mw};
+    handler_t handler = {.cb = menu_window_handler, .ctx = (void *)mw};
 
-    // register handler callback to event loop
-    // register_handler(menu_window_handler, mw);
-    s_handler[0].cb = menu_window_handler;
-    s_handler[0].ctx = mw;
+    // register window for the event handler
+    _window_register(update, handler);
 
 end:
     return err;
