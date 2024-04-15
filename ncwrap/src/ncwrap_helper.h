@@ -10,8 +10,6 @@
 #define _BUFSZ 50
 #define _BUFSZMAX 150
 
-typedef int token;
-
 char *
 safe_strncpy(char *dst, const char *src, size_t size) {
     dst[size - 1] = '\0';

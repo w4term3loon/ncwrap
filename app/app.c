@@ -63,16 +63,16 @@ main(void) {
         goto end;
     }
 
-    scroll_window_t sw = NULL;
-    err = ncw_scroll_window_init(&sw, 30, 2, 50, 15, "scroll");
-    if (err != NCW_OK) {
-        goto init;
-    }
-
     input_window_t iw = NULL;
     err = ncw_input_window_init(&iw, 30, 17, 50, "input");
     if (err != NCW_OK) {
         goto scroll;
+    }
+
+    scroll_window_t sw = NULL;
+    err = ncw_scroll_window_init(&sw, 30, 2, 50, 15, "scroll");
+    if (err != NCW_OK) {
+        goto init;
     }
 
     // set output for the input window
