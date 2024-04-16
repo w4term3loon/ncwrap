@@ -9,8 +9,9 @@
 //    TODO: menu window refresh only if needed (glitches)
 //    TODO: separate different type of widnows into different files
 //    TODO: set visibility on functions
-//    TODO: refresh optimization
+//    TODO: refresh optimization (maybe 1 global in 1 fps)
 //    https://www.man7.org/linux/man-pages/man3/curs_refresh.3x.html
+//    TODO: https://www.man7.org/linux/man-pages/man3/curs_inopts.3x.html
 // --------------------------------------------------
 
 // FEATURE-------------------------------------------
@@ -87,6 +88,12 @@ ncw_init(void) {
     if (OK != noecho()) {
         goto fail;
     }
+
+    if (OK != keypad(stdscr, TRUE)) {
+        goto fail;
+    }
+
+    wtimeout(stdscr, 100);
 
 end:
     return err;
@@ -192,6 +199,25 @@ _window_update(void) {
     return;
 }
 
+void
+_window_focus_step(window_t **focus_handle) {
+
+    if (NULL == focus_handle || NULL == *focus_handle) {
+        return;
+    }
+
+    // notify window of focus change
+    if (NULL != (*focus_handle)->handler.cb) {
+        (*focus_handle)->handler.cb(FOCUS_OFF, (*focus_handle)->handler.ctx);
+    }
+
+    *focus_handle = (*focus_handle)->next;
+
+    if (NULL != (*focus_handle)->handler.cb) {
+        (*focus_handle)->handler.cb(FOCUS_ON, (*focus_handle)->handler.ctx);
+    }
+}
+
 ncw_err
 ncw_start(void) {
 
@@ -205,11 +231,7 @@ ncw_start(void) {
         switch (event) {
 
         case CTRL('n'):
-            // notify window of focus change
-            if (NULL != _window_focus->handler.cb) {
-                _window_focus->handler.cb('q', _window_focus->handler.ctx);
-            }
-            _window_focus = _window_focus->next;
+            _window_focus_step(&_window_focus);
             break;
 
         case CTRL('x'):
@@ -290,6 +312,7 @@ ncw_input_window_init(input_window_t *iw, int x, int y, int width,
     (*iw)->line_sz = 0;
     (*iw)->display_offs = 0;
     (*iw)->cursor_offs = 0;
+    (*iw)->focus = 0;
 
 end:
     return err;
@@ -354,13 +377,14 @@ input_window_update(void *window_ctx) {
 
     if (0 != iw->line_sz) {
 
-        char *display = (char *)malloc(iw->line_sz - iw->display_offs - 1);
+        // +1 for the terminating '\0'
+        char *display = (char *)malloc(iw->line_sz - iw->display_offs + 1);
         if (NULL == display) {
             err = NCW_INSUFFICIENT_MEMORY;
             goto end;
         }
 
-        for (size_t i = 0; i < iw->line_sz - iw->display_offs - 1; ++i) {
+        for (size_t i = 0; i < iw->line_sz - iw->display_offs; ++i) {
             display[i] = iw->buf[iw->display_offs + i];
         }
 
@@ -400,11 +424,6 @@ input_window_update(void *window_ctx) {
         }
     }
 
-    // move the cursor to the appropriate position
-    if (OK != wmove(iw->window, 1, 1 + iw->cursor_offs)) {
-        goto fail;
-    }
-
     if (OK != wrefresh(iw->window)) {
         goto fail;
     }
@@ -419,6 +438,7 @@ fail:
 ncw_err
 input_window_handler(int event, void *window_ctx) {
 
+    printf("called");
     ncw_err err = NCW_OK;
     input_window_t iw = *((input_window_t *)window_ctx);
 
@@ -427,33 +447,32 @@ input_window_handler(int event, void *window_ctx) {
         goto end;
     }
 
-    // if (iw->line_sz == iw->buf_sz - 1) {
-    //     if (iw->line_sz < _BUFSZMAX) {
+    // increase buffer size if needed
+    if (iw->line_sz == iw->buf_sz - 1) {
+        if (iw->line_sz < _BUFSZMAX) {
 
-    //         char tmp[iw->buf_sz];
-    //         (void)safe_strncpy(tmp, iw->buf, iw->buf_sz);
-
-    //         iw->buf = realloc(iw->buf, iw->buf_sz);
-    //         if (NULL == iw->buf) {
-    //             err = NCW_INSUFFICIENT_MEMORY;
-    //             goto end;
-    //         }
-    //     } else {
-    //         goto end;
-    //     }
-    // }
-
-    // draw_cursor
-    if (OK != (wmove(iw->window, 1, 0) + curs_set(1) + wrefresh(iw->window))) {
-        err = NCW_NCURSES_FAIL;
-        goto end;
+            iw->buf = realloc(iw->buf, iw->buf_sz);
+            if (NULL == iw->buf) {
+                err = NCW_INSUFFICIENT_MEMORY;
+                goto end;
+            }
+        } else {
+            goto end;
+        }
     }
 
     switch (event) {
-    case 127: //< backspace
-    case KEY_DC:
-    case KEY_BACKSPACE:
+        printf("in switch");
+    case FOCUS_ON:
+        iw->focus = FOCUS_ON;
+        break;
 
+    case FOCUS_OFF:
+        iw->focus = FOCUS_OFF;
+        break;
+
+    case 127:
+    case KEY_BACKSPACE:
         // if there are characters before the cursor that can be deleted
         if (iw->display_offs != 0 || iw->cursor_offs != 0) {
 
@@ -462,44 +481,40 @@ input_window_handler(int event, void *window_ctx) {
             if (iw->display_offs != 0 &&
                 (iw->cursor_offs + iw->display_offs == iw->line_sz ||
                  iw->cursor_offs <= iw->width)) {
-
                 iw->display_offs -= 1;
-
             } else {
                 iw->cursor_offs -= 1;
             }
 
-            iw->line_sz -= 2;
+            iw->line_sz -= 1;
 
         } else { /* indicate nothing happened */
         }
-
         break;
 
-    case '\n': //< return
-    case '\r':
-    case KEY_ENTER:
+        // case '\n': //< return
+        // case '\r':
+        // case KEY_ENTER:
 
-        iw->buf[iw->line_sz] = '\0';
+        //     iw->buf[iw->line_sz] = '\0';
 
-        iw->cb(iw->buf, iw->buf_sz, iw->ctx);
-        free((void *)iw->buf);
-        iw->buf = NULL;
-        iw->buf_sz = 0;
-        iw->line_sz = 0;
-        iw->display_offs = 0;
-        iw->cursor_offs = 0;
+        //     iw->cb(iw->buf, iw->buf_sz, iw->ctx);
+        //     free((void *)iw->buf);
+        //     iw->buf = NULL;
+        //     iw->buf_sz = 0;
+        //     iw->line_sz = 0;
+        //     iw->display_offs = 0;
+        //     iw->cursor_offs = 0;
 
-        break;
+        //     break;
 
-    case 27: //< escape
+    case 27: //< escape character
 
         wgetch(stdscr);
         switch (wgetch(stdscr)) {
 
-        case 'D': //< left arrow
+        case 'D':
         case KEY_LEFT:
-
             if (iw->cursor_offs != 0) {
                 iw->cursor_offs -= 1;
             } else {
@@ -509,9 +524,8 @@ input_window_handler(int event, void *window_ctx) {
             }
             break;
 
-        case 'C': //< right arrow
+        case 'C':
         case KEY_RIGHT:
-
             if (iw->cursor_offs != iw->width - 3) {
                 if (iw->cursor_offs < iw->line_sz) {
                     iw->cursor_offs += 1;
@@ -521,33 +535,30 @@ input_window_handler(int event, void *window_ctx) {
             }
             break;
 
-        case 'A': //< up arrow
-        case 'B': //< down arrow
+        case 'A':
+        case 'B':
         case KEY_UP:
         case KEY_DOWN:
             break;
-
-        default:;
         }
+
         break;
 
-    default:
-        printf("kaka");
-        // ins(iw->buf, iw->buf_sz, iw->display_offs + iw->cursor_offs,
-        // (char)event);
+    default: //< printable character
+        printf("curso:%d\n", iw->cursor_offs);
+        ins(iw->buf, iw->buf_sz, iw->display_offs + iw->cursor_offs,
+            (char)event);
+
+        ++iw->line_sz;
 
         if (iw->width - 1 == iw->cursor_offs) {
-            iw->display_offs += -1;
+            ++iw->display_offs;
         } else {
-            iw->cursor_offs += -1;
+            ++iw->cursor_offs;
         }
     }
 
 end:
-    if (OK != curs_set(0)) {
-        err = NCW_NCURSES_FAIL;
-    }
-
     return err;
 }
 
@@ -750,6 +761,7 @@ ncw_menu_window_init(menu_window_t *mw, int x, int y, int width, int height,
     (*mw)->options = (option_t *)NULL;
     (*mw)->options_num = 0;
     (*mw)->highlight = 0;
+    (*mw)->highlight_buf = 0;
 
 end:
     return err;
@@ -936,6 +948,10 @@ menu_window_handler(int event, void *window_ctx) {
     menu_window_t mw = *((menu_window_t *)window_ctx);
 
     switch (event) {
+    case FOCUS_ON:
+        mw->highlight = mw->highlight_buf;
+        break;
+
     case 107: //< k
         if (mw->highlight != 0)
             --mw->highlight;
@@ -953,13 +969,15 @@ menu_window_handler(int event, void *window_ctx) {
         break;
 
     // do nothing for arrow characters
-    case 27:            //< Esc
-        wgetch(stdscr); //< swallow next character
-        wgetch(stdscr); //< A,B,C,D arrow
+    case KEY_DOWN:
+    case KEY_UP:
+    case KEY_LEFT:
+    case KEY_RIGHT:
         break;
 
     // stop highlighting
-    case 113: //< q
+    case FOCUS_OFF:
+        mw->highlight_buf = mw->highlight;
         mw->highlight = -1;
         break;
 

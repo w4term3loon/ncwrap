@@ -31,6 +31,7 @@ struct input_window {
     size_t buf_sz, line_sz;
     int display_offs;
     int cursor_offs;
+    int focus;
 };
 
 struct scroll_window {
@@ -55,6 +56,7 @@ struct menu_window {
     option_t *options;
     int options_num;
     int highlight;
+    int highlight_buf;
 };
 
 #endif // NCWRAP_IMPL_H_HEADER_GUARD

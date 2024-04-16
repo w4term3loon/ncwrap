@@ -7,8 +7,11 @@
 #define CTRL(c) ((c) & 037)
 #endif
 
-#define _BUFSZ 50
+#define _BUFSZ 10
 #define _BUFSZMAX 150
+
+#define FOCUS_ON (-254)
+#define FOCUS_OFF (-255)
 
 char *
 safe_strncpy(char *dst, const char *src, size_t size) {
@@ -30,7 +33,6 @@ void
 ins(char *buf, size_t bufsz, int idx, char ch) {
 
     for (size_t i = bufsz - 1; i > idx; --i) {
-        printf("%zu", i);
         if (i > idx) {
             buf[i] = buf[i - 1];
         }
