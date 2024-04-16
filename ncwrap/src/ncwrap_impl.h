@@ -28,7 +28,7 @@ struct input_window {
     output_cb cb;
     void *ctx;
     char *buf;
-    size_t bufsz, linesz;
+    size_t buf_sz, line_sz;
     int display_offs;
     int cursor_offs;
 };

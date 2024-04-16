@@ -195,8 +195,6 @@ _window_update(void) {
 ncw_err
 ncw_start(void) {
 
-    (void)_window;
-
     int event = 0;
     window_t *_window_focus = _window->next->next;
 
@@ -208,7 +206,9 @@ ncw_start(void) {
 
         case CTRL('n'):
             // notify window of focus change
-            _window_focus->handler.cb('q', _window_focus->handler.ctx);
+            if (NULL != _window_focus->handler.cb) {
+                _window_focus->handler.cb('q', _window_focus->handler.ctx);
+            }
             _window_focus = _window_focus->next;
             break;
 
@@ -286,8 +286,8 @@ ncw_input_window_init(input_window_t *iw, int x, int y, int width,
         goto unreg;
     }
 
-    (*iw)->bufsz = _BUFSZ;
-    (*iw)->linesz = 0;
+    (*iw)->buf_sz = _BUFSZ;
+    (*iw)->line_sz = 0;
     (*iw)->display_offs = 0;
     (*iw)->cursor_offs = 0;
 
@@ -352,23 +352,38 @@ input_window_update(void *window_ctx) {
     ncw_err err = NCW_OK;
     input_window_t iw = *((input_window_t *)window_ctx);
 
-    char display[iw->width];
+    if (0 != iw->line_sz) {
 
-    if (OK != window_content_clear(iw->window, iw->title)) {
-        goto fail;
-    }
+        char *display = (char *)malloc(iw->line_sz - iw->display_offs - 1);
+        if (NULL == display) {
+            err = NCW_INSUFFICIENT_MEMORY;
+            goto end;
+        }
 
-    // only need to display a portion of the buffer
-    for (int j = 0; j < iw->width - 1; ++j) {
-        display[j] = iw->buf[iw->display_offs + j];
-        if (j == iw->width - 2) {
-            display[j] = '\0';
-        };
-    }
+        for (size_t i = 0; i < iw->line_sz - iw->display_offs - 1; ++i) {
+            display[i] = iw->buf[iw->display_offs + i];
+        }
 
-    // print the portion that should be visible
-    if (OK != mvwprintw(iw->window, 1, 1, "%s", display)) {
-        goto fail;
+        display[iw->line_sz - iw->display_offs] = '\0';
+
+        if (OK != window_content_clear(iw->window, iw->title)) {
+            free((void *)display);
+            goto fail;
+        }
+
+        // print the portion that should be visible
+        if (OK != mvwprintw(iw->window, 1, 1, "%s", display)) {
+            free((void *)display);
+            goto fail;
+        }
+
+        free((void *)display);
+
+    } else {
+
+        if (OK != window_content_clear(iw->window, iw->title)) {
+            goto fail;
+        }
     }
 
     // left indicator
@@ -379,7 +394,7 @@ input_window_update(void *window_ctx) {
     }
 
     // right indicator
-    if (iw->linesz - iw->display_offs + 1 >= iw->width - 2) {
+    if (iw->line_sz - iw->display_offs + 1 > iw->width - 2) {
         if (OK != mvwprintw(iw->window, 1, iw->width - 1, ">")) {
             goto fail;
         }
@@ -412,25 +427,24 @@ input_window_handler(int event, void *window_ctx) {
         goto end;
     }
 
-    if (iw->linesz == iw->bufsz - 1) {
-        if (iw->linesz < _BUFSZMAX) {
+    // if (iw->line_sz == iw->buf_sz - 1) {
+    //     if (iw->line_sz < _BUFSZMAX) {
 
-            char tmp[iw->bufsz];
-            (void)safe_strncpy(tmp, iw->buf, iw->bufsz);
+    //         char tmp[iw->buf_sz];
+    //         (void)safe_strncpy(tmp, iw->buf, iw->buf_sz);
 
-            iw->buf = realloc(iw->buf, iw->bufsz);
-            if (NULL == iw->buf) {
-                err = NCW_INSUFFICIENT_MEMORY;
-                goto end;
-            }
-        } else {
-            goto end;
-        }
-    }
+    //         iw->buf = realloc(iw->buf, iw->buf_sz);
+    //         if (NULL == iw->buf) {
+    //             err = NCW_INSUFFICIENT_MEMORY;
+    //             goto end;
+    //         }
+    //     } else {
+    //         goto end;
+    //     }
+    // }
 
     // draw_cursor
-    if (OK != (wmove(iw->window, 1, iw->display_offs + iw->cursor_offs) +
-               curs_set(1) + wrefresh(iw->window))) {
+    if (OK != (wmove(iw->window, 1, 0) + curs_set(1) + wrefresh(iw->window))) {
         err = NCW_NCURSES_FAIL;
         goto end;
     }
@@ -443,10 +457,10 @@ input_window_handler(int event, void *window_ctx) {
         // if there are characters before the cursor that can be deleted
         if (iw->display_offs != 0 || iw->cursor_offs != 0) {
 
-            del(iw->buf, iw->bufsz, iw->display_offs + iw->cursor_offs - 1);
+            del(iw->buf, iw->buf_sz, iw->display_offs + iw->cursor_offs - 1);
 
             if (iw->display_offs != 0 &&
-                (iw->cursor_offs + iw->display_offs == iw->linesz ||
+                (iw->cursor_offs + iw->display_offs == iw->line_sz ||
                  iw->cursor_offs <= iw->width)) {
 
                 iw->display_offs -= 1;
@@ -455,7 +469,7 @@ input_window_handler(int event, void *window_ctx) {
                 iw->cursor_offs -= 1;
             }
 
-            iw->linesz -= 2;
+            iw->line_sz -= 2;
 
         } else { /* indicate nothing happened */
         }
@@ -466,13 +480,13 @@ input_window_handler(int event, void *window_ctx) {
     case '\r':
     case KEY_ENTER:
 
-        iw->buf[iw->linesz] = '\0';
+        iw->buf[iw->line_sz] = '\0';
 
-        iw->cb(iw->buf, iw->bufsz, iw->ctx);
+        iw->cb(iw->buf, iw->buf_sz, iw->ctx);
         free((void *)iw->buf);
         iw->buf = NULL;
-        iw->bufsz = 0;
-        iw->linesz = 0;
+        iw->buf_sz = 0;
+        iw->line_sz = 0;
         iw->display_offs = 0;
         iw->cursor_offs = 0;
 
@@ -499,10 +513,10 @@ input_window_handler(int event, void *window_ctx) {
         case KEY_RIGHT:
 
             if (iw->cursor_offs != iw->width - 3) {
-                if (iw->cursor_offs < iw->linesz) {
+                if (iw->cursor_offs < iw->line_sz) {
                     iw->cursor_offs += 1;
                 }
-            } else if (iw->cursor_offs + iw->display_offs != iw->linesz) {
+            } else if (iw->cursor_offs + iw->display_offs != iw->line_sz) {
                 iw->display_offs += 1;
             }
             break;
@@ -518,9 +532,9 @@ input_window_handler(int event, void *window_ctx) {
         break;
 
     default:
-
-        ins(iw->buf, iw->bufsz, iw->display_offs + iw->cursor_offs,
-            (char)event);
+        printf("kaka");
+        // ins(iw->buf, iw->buf_sz, iw->display_offs + iw->cursor_offs,
+        // (char)event);
 
         if (iw->width - 1 == iw->cursor_offs) {
             iw->display_offs += -1;

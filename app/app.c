@@ -26,7 +26,7 @@ add_option(void *ctx) {
     input_window_t iw = NULL;
     ncw_input_window_init(&iw, 10, 10, 20, "add");
 
-    char name[50];
+    char name[50] = "";
     ncw_input_window_set_output(iw, asd_cb, (void *)name);
     ncw_input_window_close(&iw);
 
