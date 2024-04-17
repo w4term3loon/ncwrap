@@ -4,10 +4,10 @@
 #include "ncwrap_impl.h"
 
 #ifndef CTRL
-#define CTRL(c) ((c) & 037)
+#define CTRL(c) ((c)&037)
 #endif
 
-#define _BUFSZ 10
+#define _BUFSZ 2
 #define _BUFSZMAX 150
 
 #define FOCUS_ON (-254)

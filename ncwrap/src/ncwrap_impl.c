@@ -12,6 +12,7 @@
 //    TODO: refresh optimization (maybe 1 global in 1 fps)
 //    https://www.man7.org/linux/man-pages/man3/curs_refresh.3x.html
 //    TODO: https://www.man7.org/linux/man-pages/man3/curs_inopts.3x.html
+//    TODO: comment for all magic constants
 // --------------------------------------------------
 
 // FEATURE-------------------------------------------
@@ -230,6 +231,9 @@ ncw_start(void) {
         event = wgetch(stdscr);
         switch (event) {
 
+        case ERR:
+            break;
+
         case CTRL('n'):
             _window_focus_step(&_window_focus);
             break;
@@ -377,18 +381,20 @@ input_window_update(void *window_ctx) {
 
     if (0 != iw->line_sz) {
 
-        // +1 for the terminating '\0'
-        char *display = (char *)malloc(iw->line_sz - iw->display_offs + 1);
+        // -2 borders +1 for '\0'
+        char *display = (char *)calloc(iw->width - 2 + 1, sizeof(char));
         if (NULL == display) {
             err = NCW_INSUFFICIENT_MEMORY;
             goto end;
         }
 
+        // -1 for the cursor
         for (size_t i = 0; i < iw->line_sz - iw->display_offs; ++i) {
             display[i] = iw->buf[iw->display_offs + i];
         }
 
-        display[iw->line_sz - iw->display_offs] = '\0';
+        // insert cursor
+        ins(display, iw->width - 2 + 1, iw->cursor_offs, '|');
 
         if (OK != window_content_clear(iw->window, iw->title)) {
             free((void *)display);
@@ -438,31 +444,11 @@ fail:
 ncw_err
 input_window_handler(int event, void *window_ctx) {
 
-    printf("called");
+    printf("event:%d->", event);
     ncw_err err = NCW_OK;
     input_window_t iw = *((input_window_t *)window_ctx);
 
-    // ignore control ascii
-    if (event < 32 || event > 127) {
-        goto end;
-    }
-
-    // increase buffer size if needed
-    if (iw->line_sz == iw->buf_sz - 1) {
-        if (iw->line_sz < _BUFSZMAX) {
-
-            iw->buf = realloc(iw->buf, iw->buf_sz);
-            if (NULL == iw->buf) {
-                err = NCW_INSUFFICIENT_MEMORY;
-                goto end;
-            }
-        } else {
-            goto end;
-        }
-    }
-
     switch (event) {
-        printf("in switch");
     case FOCUS_ON:
         iw->focus = FOCUS_ON;
         break;
@@ -492,66 +478,76 @@ input_window_handler(int event, void *window_ctx) {
         }
         break;
 
-        // case '\n': //< return
-        // case '\r':
-        // case KEY_ENTER:
+    // TODO
+    case '\n':
+    case '\r':
+    case KEY_ENTER:
 
-        //     iw->buf[iw->line_sz] = '\0';
+        // seal the buffer
+        iw->buf[iw->line_sz] = '\0';
 
-        //     iw->cb(iw->buf, iw->buf_sz, iw->ctx);
-        //     free((void *)iw->buf);
-        //     iw->buf = NULL;
-        //     iw->buf_sz = 0;
-        //     iw->line_sz = 0;
-        //     iw->display_offs = 0;
-        //     iw->cursor_offs = 0;
-
-        //     break;
-
-    case 27: //< escape character
-
-        wgetch(stdscr);
-        switch (wgetch(stdscr)) {
-
-        case 'D':
-        case KEY_LEFT:
-            if (iw->cursor_offs != 0) {
-                iw->cursor_offs -= 1;
-            } else {
-                if (iw->display_offs != 0) {
-                    iw->display_offs -= 1;
-                }
-            }
-            break;
-
-        case 'C':
-        case KEY_RIGHT:
-            if (iw->cursor_offs != iw->width - 3) {
-                if (iw->cursor_offs < iw->line_sz) {
-                    iw->cursor_offs += 1;
-                }
-            } else if (iw->cursor_offs + iw->display_offs != iw->line_sz) {
-                iw->display_offs += 1;
-            }
-            break;
-
-        case 'A':
-        case 'B':
-        case KEY_UP:
-        case KEY_DOWN:
-            break;
-        }
+        iw->cb(iw->buf, iw->buf_sz, iw->ctx);
+        free((void *)iw->buf);
+        iw->buf = NULL;
+        iw->buf_sz = 0;
+        iw->line_sz = 0;
+        iw->display_offs = 0;
+        iw->cursor_offs = 0;
 
         break;
 
+    case KEY_LEFT:
+        if (iw->cursor_offs != 0) {
+            iw->cursor_offs -= 1;
+        } else {
+            if (iw->display_offs != 0) {
+                iw->display_offs -= 1;
+            }
+        }
+        break;
+
+    case KEY_RIGHT:
+        if (iw->cursor_offs != iw->width - 3) {
+            if (iw->cursor_offs < iw->line_sz) {
+                iw->cursor_offs += 1;
+            }
+        } else if (iw->cursor_offs + iw->display_offs != iw->line_sz) {
+            iw->display_offs += 1;
+        }
+        break;
+
+    case KEY_UP:
+    case KEY_DOWN:
+        break;
+
     default: //< printable character
-        printf("curso:%d\n", iw->cursor_offs);
+
+        // ignore control ascii
+        if (event < 32 || event > 127) {
+            goto end;
+        }
+
+        // increase buffer size if needed
+        if (iw->line_sz == iw->buf_sz - 1) {
+            if (iw->buf_sz < _BUFSZMAX) {
+
+                iw->buf_sz += _BUFSZ;
+                iw->buf = realloc(iw->buf, iw->buf_sz);
+                if (NULL == iw->buf) {
+                    err = NCW_INSUFFICIENT_MEMORY;
+                    goto end;
+                }
+            } else {
+                goto end;
+            }
+        }
+
         ins(iw->buf, iw->buf_sz, iw->display_offs + iw->cursor_offs,
             (char)event);
 
         ++iw->line_sz;
 
-        if (iw->width - 1 == iw->cursor_offs) {
+        if (iw->width - 2 == iw->cursor_offs) {
             ++iw->display_offs;
         } else {
             ++iw->cursor_offs;
