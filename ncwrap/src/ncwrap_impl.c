@@ -13,16 +13,13 @@
 //    https://www.man7.org/linux/man-pages/man3/curs_refresh.3x.html
 //    TODO: https://www.man7.org/linux/man-pages/man3/curs_inopts.3x.html
 //    TODO: comment for all magic constants
-// --------------------------------------------------
+//    TODO: only show input cursor when focus is on
+//    TODO: focus indicator
+//    TODO: automacically roll over window with no handler
+//    TODO: support for popup windows lifecycle management
+// -------------------------------------------------
 
 // FEATURE-------------------------------------------
-//    TODO: add main event loop using nodelay, to draw,input
-//    by defining a common UPDATE and HANDLE callback that all windows
-//    can implement. Update defines how to refresh the window
-//    and handle gets called depending on which window is in focus.
-//    Handle can decide what to do with the character. The main
-//    event loop needs a the wgetch that is non-blocking.
-//    each window has an update callback that is registered when INIT
 //    TODO: err code interpreter fuction on interface
 //    TODO: logging with dlt or syslog or stderr
 //    TODO: introduce thread safety ??
@@ -223,7 +220,7 @@ ncw_err
 ncw_start(void) {
 
     int event = 0;
-    window_t *_window_focus = _window->next->next;
+    window_t *_window_focus = _window;
 
     for (;;) {
 
@@ -297,7 +294,7 @@ ncw_input_window_init(input_window_t *iw, int x, int y, int width,
     (*iw)->_window = _window_register(update, handler);
     if (NULL == (*iw)->_window) {
         err = NCW_INSUFFICIENT_MEMORY;
-        goto cleanall;
+        goto delw;
     }
 
     (*iw)->width = width;
@@ -306,10 +303,17 @@ ncw_input_window_init(input_window_t *iw, int x, int y, int width,
     (*iw)->cb = NULL;
     (*iw)->ctx = NULL;
 
-    (*iw)->buf = (char *)malloc(_BUFSZ);
+    (*iw)->buf = (char *)calloc(_BUFSZ, sizeof(char));
     if (NULL == (*iw)->buf) {
         err = NCW_INSUFFICIENT_MEMORY;
         goto unreg;
+    }
+
+    // +1 for terminating '\0'
+    (*iw)->display = (char *)calloc((size_t)(*iw)->width - 2 + 1, sizeof(char));
+    if (NULL == (*iw)->display) {
+        err = NCW_INSUFFICIENT_MEMORY;
+        goto cleanall;
     }
 
     (*iw)->buf_sz = _BUFSZ;
@@ -320,9 +324,11 @@ ncw_input_window_init(input_window_t *iw, int x, int y, int width,
 
 end:
     return err;
+cleanall:
+    free((void *)(*iw)->buf);
 unreg:
     _window_unregister((*iw)->_window);
-cleanall:
+delw:
     delwin((*iw)->window);
 clean:
     free((void *)*iw);
@@ -353,6 +359,7 @@ ncw_input_window_close(input_window_t *iw) {
     _window_unregister((*iw)->_window);
 
     free((void *)(*iw)->buf);
+    free((void *)(*iw)->display);
     free((void *)*iw);
     *iw = NULL;
 
@@ -379,41 +386,25 @@ input_window_update(void *window_ctx) {
     ncw_err err = NCW_OK;
     input_window_t iw = *((input_window_t *)window_ctx);
 
-    if (0 != iw->line_sz) {
+    memset(iw->display, 0, (size_t)iw->width - 2 + 1);
 
-        // -2 borders +1 for '\0'
-        char *display = (char *)calloc(iw->width - 2 + 1, sizeof(char));
-        if (NULL == display) {
-            err = NCW_INSUFFICIENT_MEMORY;
-            goto end;
-        }
+    // -1 for the cursor
+    for (size_t i = 0; i < iw->width - 2 - 1; ++i) {
+        iw->display[i] = iw->buf[iw->display_offs + i];
+    }
 
-        // -1 for the cursor
-        for (size_t i = 0; i < iw->line_sz - iw->display_offs; ++i) {
-            display[i] = iw->buf[iw->display_offs + i];
-        }
+    // insert cursor
+    ins(iw->display, iw->width - 2 + 1, iw->cursor_offs, '|');
 
-        // insert cursor
-        ins(display, iw->width - 2 + 1, iw->cursor_offs, '|');
+    if (OK != window_content_clear(iw->window, iw->title)) {
+        free((void *)iw->display);
+        goto fail;
+    }
 
-        if (OK != window_content_clear(iw->window, iw->title)) {
-            free((void *)display);
-            goto fail;
-        }
-
-        // print the portion that should be visible
-        if (OK != mvwprintw(iw->window, 1, 1, "%s", display)) {
-            free((void *)display);
-            goto fail;
-        }
-
-        free((void *)display);
-
-    } else {
-
-        if (OK != window_content_clear(iw->window, iw->title)) {
-            goto fail;
-        }
+    // print the portion that should be visible
+    if (OK != mvwprintw(iw->window, 1, 1, "%s", iw->display)) {
+        free((void *)iw->display);
+        goto fail;
     }
 
     // left indicator
@@ -444,7 +435,7 @@ fail:
 ncw_err
 input_window_handler(int event, void *window_ctx) {
 
-    printf("event:%d->", event);
+    // printf("event:%d->", event);
     ncw_err err = NCW_OK;
     input_window_t iw = *((input_window_t *)window_ctx);
 
@@ -478,18 +469,24 @@ input_window_handler(int event, void *window_ctx) {
         }
         break;
 
-    // TODO
     case '\n':
     case '\r':
     case KEY_ENTER:
 
-        // seal the buffer
-        iw->buf[iw->line_sz] = '\0';
+        // return the input string
+        if (NULL != iw->cb) {
+            iw->cb(iw->buf, iw->buf_sz, iw->ctx);
+        }
 
-        iw->cb(iw->buf, iw->buf_sz, iw->ctx);
         free((void *)iw->buf);
-        iw->buf = NULL;
-        iw->buf_sz = 0;
+        iw->buf = (char *)calloc(_BUFSZ, sizeof(char));
+        if (NULL == iw->buf) {
+            err = NCW_INSUFFICIENT_MEMORY;
+            goto end;
+        }
+
+        iw->buf_sz = _BUFSZ;
+
         iw->line_sz = 0;
         iw->display_offs = 0;
         iw->cursor_offs = 0;
@@ -547,7 +544,7 @@ input_window_handler(int event, void *window_ctx) {
 
         ++iw->line_sz;
 
-        if (iw->width - 2 == iw->cursor_offs) {
+        if (iw->width - 3 == iw->cursor_offs) {
             ++iw->display_offs;
         } else {
             ++iw->cursor_offs;

@@ -14,24 +14,30 @@ struct add_option_ctx {
     void *ctx;
 };
 
+struct input_close {
+    void *ctx;
+    input_window_t self;
+};
+
 void
 asd_cb(char *buf, size_t bufsz, void *ctx) {
-    char *ctxp = (char *)ctx;
-    (void)strncpy(ctxp, buf, bufsz);
+
+    struct input_close ic = *((struct input_close *)ctx);
+
+    struct add_option_ctx aoc = *((struct add_option_ctx *)ic.ctx);
+    ncw_menu_window_add_option(aoc.mw, buf, aoc.cb, aoc.ctx);
+
+    input_window_t self = ic.self;
+    ncw_input_window_close(&self);
 }
 
 void
 add_option(void *ctx) {
-
     input_window_t iw = NULL;
-    ncw_input_window_init(&iw, 10, 10, 20, "add");
+    ncw_input_window_init(&iw, 0, 0, 20, "add");
 
-    char name[50] = "";
-    ncw_input_window_set_output(iw, asd_cb, (void *)name);
-    ncw_input_window_close(&iw);
-
-    struct add_option_ctx _ctx = *((struct add_option_ctx *)ctx);
-    ncw_menu_window_add_option(_ctx.mw, name, _ctx.cb, _ctx.ctx);
+    struct input_close close = {.ctx = ctx, .self = iw};
+    ncw_input_window_set_output(iw, asd_cb, (void *)&close);
 }
 
 // void
