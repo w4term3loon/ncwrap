@@ -14,14 +14,16 @@
 //    TODO: https://www.man7.org/linux/man-pages/man3/curs_inopts.3x.html
 //    TODO: comment for all magic constants
 //    TODO: only show input cursor when focus is on
-//    TODO: focus indicator
 //    TODO: automacically roll over window with no handler
 //    TODO: support for popup windows lifecycle management
+//    TODO: only refresh windows that had changed (handler called on)
+//    TODO: consider moving the event loop outside the application
+//    TODO: input window flag for popupness -> if set delete when return
 // -------------------------------------------------
 
 // FEATURE-------------------------------------------
 //    TODO: err code interpreter fuction on interface
-//    TODO: logging with dlt or syslog or stderr
+//    TODO: logging with dlt or syslog or stde
 //    TODO: introduce thread safety ??
 //    TODO: terminal window
 //    TODO: debug window
@@ -198,29 +200,37 @@ _window_update(void) {
 }
 
 void
-_window_focus_step(window_t **focus_handle) {
+_window_focus_step(window_t **focus) {
 
-    if (NULL == focus_handle || NULL == *focus_handle) {
+    if (NULL == focus || NULL == *focus) {
         return;
     }
 
-    // notify window of focus change
-    if (NULL != (*focus_handle)->handler.cb) {
-        (*focus_handle)->handler.cb(FOCUS_OFF, (*focus_handle)->handler.ctx);
+    // notify the last handler
+    (*focus)->handler.cb(FOCUS_OFF, (*focus)->handler.ctx);
+
+    // find the next handler
+    *focus = (*focus)->next;
+    while (NULL == (*focus)->handler.cb) {
+        *focus = (*focus)->next;
     }
 
-    *focus_handle = (*focus_handle)->next;
-
-    if (NULL != (*focus_handle)->handler.cb) {
-        (*focus_handle)->handler.cb(FOCUS_ON, (*focus_handle)->handler.ctx);
-    }
+    // notify the next handler
+    (*focus)->handler.cb(FOCUS_ON, (*focus)->handler.ctx);
 }
 
 ncw_err
 ncw_start(void) {
 
     int event = 0;
+
+    // _window_start();
     window_t *_window_focus = _window;
+
+    if (NULL != _window_focus->handler.cb) {
+        _window_focus->handler.cb(FOCUS_ON, _window_focus->handler.ctx);
+    }
+    //
 
     for (;;) {
 
@@ -239,9 +249,11 @@ ncw_start(void) {
             goto end;
 
         default:
+            // _window_handler(event);
             if (NULL != _window_focus->handler.cb) {
                 _window_focus->handler.cb(event, _window_focus->handler.ctx);
             }
+            //
         }
     }
 
@@ -394,7 +406,9 @@ input_window_update(void *window_ctx) {
     }
 
     // insert cursor
-    ins(iw->display, iw->width - 2 + 1, iw->cursor_offs, '|');
+    if (FOCUS_ON == iw->focus) {
+        ins(iw->display, iw->width - 2 + 1, iw->cursor_offs, '|');
+    }
 
     if (OK != window_content_clear(iw->window, iw->title)) {
         free((void *)iw->display);
@@ -753,7 +767,7 @@ ncw_menu_window_init(menu_window_t *mw, int x, int y, int width, int height,
     (*mw)->height = height;
     (*mw)->options = (option_t *)NULL;
     (*mw)->options_num = 0;
-    (*mw)->highlight = 0;
+    (*mw)->highlight = -1;
     (*mw)->highlight_buf = 0;
 
 end:
