@@ -4,12 +4,24 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#ifndef CTRL
+#define CTRL(c) ((c) & 037)
+#endif
+
+#undef ERR
+#define ERR (-1)
+
+#undef OK
+#define OK (0)
+
 typedef enum {
     NCW_OK = 0,              // OK
     NCW_NCURSES_FAIL,        // ncurses library ran into error (?)
     NCW_INVALID_PARAM,       // invalid parameter for function
     NCW_INSUFFICIENT_MEMORY, // application ran out of memory
 } ncw_err;
+
+typedef struct meta_window *meta_window_t;
 
 // input window type
 typedef struct input_window *input_window_t;
@@ -32,11 +44,20 @@ ncw_init(void);
 ncw_err
 ncw_close(void);
 
-/* Start event loop.
- * Always call after all window initialisations.
- */
-ncw_err
-ncw_start(void);
+int
+ncw_poll(void);
+
+meta_window_t
+ncw_window_acquire_focus(void);
+
+void
+ncw_window_focus_step(meta_window_t *focus);
+
+void
+ncw_window_update(void);
+
+void
+ncw_window_event_handler(int event, meta_window_t focus);
 
 /* Initialize input window with dimensions and title.
  * @param iw[out]: the initialized window.

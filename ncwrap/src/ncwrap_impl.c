@@ -17,7 +17,6 @@
 //    TODO: automacically roll over window with no handler
 //    TODO: support for popup windows lifecycle management
 //    TODO: only refresh windows that had changed (handler called on)
-//    TODO: consider moving the event loop outside the application
 //    TODO: input window flag for popupness -> if set delete when return
 // -------------------------------------------------
 
@@ -51,7 +50,7 @@
 #include "ncwrap_helper.h"
 #include "ncwrap_impl.h"
 
-static window_t *_window = NULL;
+static meta_window_t _window = NULL;
 
 ncw_err
 ncw_init(void) {
@@ -121,13 +120,13 @@ fail:
     goto end;
 }
 
-window_t *
+meta_window_t
 _window_register(update_t update, handler_t handler) {
 
     // malloc new element
-    window_t *new = (window_t *)malloc(sizeof(window_t));
+    meta_window_t new = (meta_window_t)malloc(sizeof(struct meta_window));
     if (NULL == new) {
-        return (window_t *)NULL;
+        return (meta_window_t)NULL;
     }
 
     // init new element
@@ -153,7 +152,7 @@ _window_register(update_t update, handler_t handler) {
 }
 
 void
-_window_unregister(window_t *window_handle) {
+_window_unregister(meta_window_t window_handle) {
 
     // invalid pointer
     if (NULL == window_handle) {
@@ -183,13 +182,13 @@ clean:
 }
 
 void
-_window_update(void) {
+ncw_window_update(void) {
 
     if (NULL == _window) {
         return;
     }
 
-    for (window_t *iter = _window;; iter = iter->next) {
+    for (meta_window_t iter = _window;; iter = iter->next) {
         iter->update.cb(iter->update.ctx);
         if (_window == iter->next) {
             break;
@@ -200,7 +199,7 @@ _window_update(void) {
 }
 
 void
-_window_focus_step(window_t **focus) {
+ncw_window_focus_step(meta_window_t *focus) {
 
     if (NULL == focus || NULL == *focus) {
         return;
@@ -219,46 +218,30 @@ _window_focus_step(window_t **focus) {
     (*focus)->handler.cb(FOCUS_ON, (*focus)->handler.ctx);
 }
 
-ncw_err
-ncw_start(void) {
+meta_window_t
+ncw_window_acquire_focus(void) {
 
-    int event = 0;
+    meta_window_t focus = _window;
 
-    // _window_start();
-    window_t *_window_focus = _window;
-
-    if (NULL != _window_focus->handler.cb) {
-        _window_focus->handler.cb(FOCUS_ON, _window_focus->handler.ctx);
-    }
-    //
-
-    for (;;) {
-
-        _window_update();
-        event = wgetch(stdscr);
-        switch (event) {
-
-        case ERR:
-            break;
-
-        case CTRL('n'):
-            _window_focus_step(&_window_focus);
-            break;
-
-        case CTRL('x'):
-            goto end;
-
-        default:
-            // _window_handler(event);
-            if (NULL != _window_focus->handler.cb) {
-                _window_focus->handler.cb(event, _window_focus->handler.ctx);
-            }
-            //
+    if (NULL != focus) {
+        if (NULL != focus->handler.cb) {
+            focus->handler.cb(FOCUS_ON, focus->handler.ctx);
+        } else {
+            ncw_window_focus_step(&focus);
         }
     }
 
-end:
-    return NCW_OK;
+    return focus; //< potentially NULL
+}
+
+void
+ncw_window_event_handler(int event, meta_window_t focus) {
+    focus->handler.cb(event, focus->handler.ctx);
+}
+
+int
+ncw_poll(void) {
+    return wgetch(stdscr);
 }
 
 ncw_err

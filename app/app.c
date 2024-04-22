@@ -111,9 +111,30 @@ main(void) {
         goto menu;
     }
 
-    err = ncw_start();
-    if (err != NCW_OK) {
-        goto input;
+    // event loop
+    int event = 0;
+
+    meta_window_t focus = ncw_window_acquire_focus();
+
+    for (;;) {
+
+        ncw_window_update();
+        event = ncw_poll();
+        switch (event) {
+
+        case ERR:
+            break;
+
+        case CTRL('n'):
+            ncw_window_focus_step(&focus);
+            break;
+
+        case CTRL('x'):
+            goto menu;
+
+        default:
+            ncw_window_event_handler(event, focus);
+        }
     }
 
     // err = ncw_menu_window_add_option(mw, "delete", delete_option, (void

@@ -13,17 +13,17 @@ typedef struct {
     void *ctx;
 } handler_t;
 
-typedef struct window {
+struct meta_window {
     update_t update;
     handler_t handler;
-    struct window *next;
-    struct window *prev;
-} window_t;
+    meta_window_t next;
+    meta_window_t prev;
+};
 
 struct input_window {
     char *title;
     WINDOW *window;
-    window_t *_window;
+    meta_window_t _window;
     int width;
     output_cb cb;
     void *ctx;
@@ -36,7 +36,7 @@ struct input_window {
 struct scroll_window {
     char *title;
     WINDOW *window;
-    window_t *_window;
+    meta_window_t _window;
     int width, height;
     char *next_line;
 };
@@ -50,7 +50,7 @@ typedef struct {
 struct menu_window {
     char *title;
     WINDOW *window;
-    window_t *_window;
+    meta_window_t _window;
     int width, height;
     option_t *options;
     int options_num;
