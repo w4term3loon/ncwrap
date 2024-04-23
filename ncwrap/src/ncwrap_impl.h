@@ -11,19 +11,20 @@ typedef ncw_err (*handler_cb)(int event, void *window_ctx);
 typedef struct {
     handler_cb cb;
     void *ctx;
-} handler_t;
+} event_handler_t;
 
-struct meta_window {
+struct window_handle {
     update_t update;
-    handler_t handler;
-    meta_window_t next;
-    meta_window_t prev;
+    event_handler_t event_handler;
+    window_handle_t next;
+    window_handle_t prev;
 };
 
 struct input_window {
+    char is_popup;
     char *title;
     WINDOW *window;
-    meta_window_t _window;
+    window_handle_t _window;
     int width;
     output_cb cb;
     void *ctx;
@@ -36,7 +37,7 @@ struct input_window {
 struct scroll_window {
     char *title;
     WINDOW *window;
-    meta_window_t _window;
+    window_handle_t _window;
     int width, height;
     char *next_line;
 };
@@ -50,7 +51,7 @@ typedef struct {
 struct menu_window {
     char *title;
     WINDOW *window;
-    meta_window_t _window;
+    window_handle_t _window;
     int width, height;
     option_t *options;
     int options_num;

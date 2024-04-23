@@ -14,30 +14,17 @@ struct add_option_ctx {
     void *ctx;
 };
 
-struct input_close {
-    void *ctx;
-    input_window_t self;
-};
-
 void
-asd_cb(char *buf, size_t bufsz, void *ctx) {
-
-    struct input_close ic = *((struct input_close *)ctx);
-
-    struct add_option_ctx aoc = *((struct add_option_ctx *)ic.ctx);
-    ncw_menu_window_add_option(aoc.mw, buf, aoc.cb, aoc.ctx);
-
-    input_window_t self = ic.self;
-    ncw_input_window_close(&self);
+create_option(char *buf, size_t bufsz, void *ctx) {
+    struct add_option_ctx *aoc = (struct add_option_ctx *)ctx;
+    ncw_menu_window_add_option(aoc->mw, buf, aoc->cb, aoc->ctx);
 }
 
 void
 add_option(void *ctx) {
     input_window_t iw = NULL;
-    ncw_input_window_init(&iw, 0, 0, 20, "add");
-
-    struct input_close close = {.ctx = ctx, .self = iw};
-    ncw_input_window_set_output(iw, asd_cb, (void *)&close);
+    ncw_input_window_init(&iw, 2, 2, 20, "add", 1); //< make window popup
+    // ncw_input_window_set_output(iw, create_option, ctx);
 }
 
 // void
@@ -70,7 +57,7 @@ main(void) {
     }
 
     input_window_t iw = NULL;
-    err = ncw_input_window_init(&iw, 30, 17, 50, "input");
+    err = ncw_input_window_init(&iw, 30, 17, 50, "input", 0);
     if (err != NCW_OK) {
         goto scroll;
     }
@@ -113,27 +100,32 @@ main(void) {
 
     // event loop
     int event = 0;
+    window_handle_t focus = ncw_focus_get();
 
-    meta_window_t focus = ncw_window_acquire_focus();
-
+    input_window_t diw = NULL;
     for (;;) {
 
-        ncw_window_update();
-        event = ncw_poll();
+        ncw_update();
+        event = ncw_getch();
         switch (event) {
 
         case ERR:
             break;
 
         case CTRL('n'):
-            ncw_window_focus_step(&focus);
+            ncw_focus_step(&focus);
+            break;
+
+        case CTRL('t'):
+            ncw_input_window_init(&diw, 2, 2, 20, "added",
+                                  1); //< make window popup
             break;
 
         case CTRL('x'):
             goto menu;
 
         default:
-            ncw_window_event_handler(event, focus);
+            ncw_event_handler(event, focus);
         }
     }
 
@@ -141,20 +133,6 @@ main(void) {
     // *)mw); if (err != NCW_OK) {
     //     goto menu;
     // }
-
-    // do {
-
-    //     err = ncw_input_window_read(iw, buf, sizeof buf);
-    //     if (err != NCW_OK) {
-    //         goto menu;
-    //     }
-
-    //     err = ncw_scroll_window_add_line(sw, buf);
-    //     if (err != NCW_OK) {
-    //         goto menu;
-    //     }
-
-    // } while (strcmp(buf, "exit") != 0);
 
 menu:
     ncw_menu_window_close(&mw);

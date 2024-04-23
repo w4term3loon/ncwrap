@@ -21,7 +21,8 @@ typedef enum {
     NCW_INSUFFICIENT_MEMORY, // application ran out of memory
 } ncw_err;
 
-typedef struct meta_window *meta_window_t;
+// window handler type
+typedef struct window_handle *window_handle_t;
 
 // input window type
 typedef struct input_window *input_window_t;
@@ -44,20 +45,35 @@ ncw_init(void);
 ncw_err
 ncw_close(void);
 
+/* Get input from user.
+ * @return the ascii decimal of the inputted character.
+ */
 int
-ncw_poll(void);
+ncw_getch(void);
 
-meta_window_t
-ncw_window_acquire_focus(void);
+/* Get the handle for the first window that has a handler.
+ * @return the handle of the first window.
+ */
+window_handle_t
+ncw_focus_get(void);
 
+/* Step the focus handle to the next window with handler.
+ * @param focus[in,out]: the focus acquired by the ncw_focus_get function.
+ */
 void
-ncw_window_focus_step(meta_window_t *focus);
+ncw_focus_step(window_handle_t *focus);
 
+/* Update all windows on the screen.
+ */
 void
-ncw_window_update(void);
+ncw_update(void);
 
+/* Handle an event recieved from ncw_getch by the focused window.
+ * @param event[in]: the event that from ncw_getch.
+ * @param focus[in]: the focused window handle.
+ */
 void
-ncw_window_event_handler(int event, meta_window_t focus);
+ncw_event_handler(int event, window_handle_t focus);
 
 /* Initialize input window with dimensions and title.
  * @param iw[out]: the initialized window.
@@ -65,11 +81,12 @@ ncw_window_event_handler(int event, meta_window_t focus);
  * @param y[in]: the vertical position of the top-left corner.
  * @param width[in]: the width of the window.
  * @param title[in]: the title of the window.
+ * @param is_popup[in]: is the window a popup. (close after return)
  * @return: error code.
  */
 ncw_err
 ncw_input_window_init(input_window_t *iw, int x, int y, int width,
-                      const char *title);
+                      const char *title, char is_popup);
 
 /* Close input window and set the pointer to NULL.
  * @param iw[in,out]: the window to be closed.

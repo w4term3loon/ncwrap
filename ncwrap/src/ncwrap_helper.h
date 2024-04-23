@@ -3,10 +3,6 @@
 
 #include "ncwrap_impl.h"
 
-#ifndef CTRL
-#define CTRL(c) ((c) & 037)
-#endif
-
 #define _BUFSZ 32
 #define _BUFSZMAX 256
 
@@ -76,7 +72,7 @@ window_draw_box(WINDOW *window, const char *title) {
         goto end;
     }
 
-    error = wrefresh(window);
+    error = wnoutrefresh(window);
     if (OK != error) {
         goto end;
     }
@@ -94,7 +90,7 @@ window_clear(WINDOW *window) {
         goto end;
     }
 
-    wrefresh(window);
+    wnoutrefresh(window);
     if (OK != error) {
         goto end;
     }
