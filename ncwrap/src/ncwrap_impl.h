@@ -24,7 +24,7 @@ struct input_window {
     char is_popup;
     char *title;
     WINDOW *window;
-    window_handle_t _window;
+    window_handle_t wh;
     int width;
     output_cb cb;
     void *ctx;
@@ -37,7 +37,7 @@ struct input_window {
 struct scroll_window {
     char *title;
     WINDOW *window;
-    window_handle_t _window;
+    window_handle_t wh;
     int width, height;
     char *next_line;
 };
@@ -51,7 +51,7 @@ typedef struct {
 struct menu_window {
     char *title;
     WINDOW *window;
-    window_handle_t _window;
+    window_handle_t wh;
     int width, height;
     option_t *options;
     int options_num;

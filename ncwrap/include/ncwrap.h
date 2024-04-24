@@ -51,17 +51,11 @@ ncw_close(void);
 int
 ncw_getch(void);
 
-/* Get the handle for the first window that has a handler.
- * @return the handle of the first window.
- */
-window_handle_t
-ncw_focus_get(void);
-
 /* Step the focus handle to the next window with handler.
  * @param focus[in,out]: the focus acquired by the ncw_focus_get function.
  */
 void
-ncw_focus_step(window_handle_t *focus);
+ncw_focus_step(void);
 
 /* Update all windows on the screen.
  */
@@ -70,10 +64,9 @@ ncw_update(void);
 
 /* Handle an event recieved from ncw_getch by the focused window.
  * @param event[in]: the event that from ncw_getch.
- * @param focus[in]: the focused window handle.
  */
 void
-ncw_event_handler(int event, window_handle_t focus);
+ncw_event_handler(int event);
 
 /* Initialize input window with dimensions and title.
  * @param iw[out]: the initialized window.

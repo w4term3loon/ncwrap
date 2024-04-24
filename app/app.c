@@ -10,21 +10,21 @@ cb(void *ctx) {
 
 struct add_option_ctx {
     menu_window_t mw;
-    option_cb cb;
-    void *ctx;
+    void (*demon_cb)(void *);
+    void *demon_ctx;
 };
 
-void
-create_option(char *buf, size_t bufsz, void *ctx) {
-    struct add_option_ctx *aoc = (struct add_option_ctx *)ctx;
-    ncw_menu_window_add_option(aoc->mw, buf, aoc->cb, aoc->ctx);
-}
+// void
+// create_option(char *buf, size_t bufsz, void *ctx) {
+//     struct add_option_ctx *aoc = (struct add_option_ctx *)ctx;
+//     ncw_menu_window_add_option(aoc->mw, buf, aoc->cb, aoc->ctx);
+// }
 
 void
 add_option(void *ctx) {
     input_window_t iw = NULL;
-    ncw_input_window_init(&iw, 2, 2, 20, "add", 1); //< make window popup
-    // ncw_input_window_set_output(iw, create_option, ctx);
+    ncw_input_window_init(&iw, 2, 2, 20, "demon", 1); //< make window popup
+    //  ncw_input_window_set_output(iw, create_option, ctx);
 }
 
 // void
@@ -90,8 +90,8 @@ main(void) {
 
     struct add_option_ctx aoc;
     aoc.mw = mw;
-    aoc.cb = cb;
-    aoc.ctx = (void *)&cnt;
+    aoc.demon_cb = cb;
+    aoc.demon_ctx = (void *)&cnt;
 
     err = ncw_menu_window_add_option(mw, "add", add_option, (void *)&aoc);
     if (err != NCW_OK) {
@@ -100,11 +100,9 @@ main(void) {
 
     // event loop
     int event = 0;
-    window_handle_t focus = ncw_focus_get();
-
+    ncw_focus_step();
     input_window_t diw = NULL;
     for (;;) {
-
         ncw_update();
         event = ncw_getch();
         switch (event) {
@@ -113,7 +111,7 @@ main(void) {
             break;
 
         case CTRL('n'):
-            ncw_focus_step(&focus);
+            ncw_focus_step();
             break;
 
         case CTRL('t'):
@@ -125,7 +123,7 @@ main(void) {
             goto menu;
 
         default:
-            ncw_event_handler(event, focus);
+            ncw_event_handler(event);
         }
     }
 

@@ -14,6 +14,7 @@
 //    TODO: support for popup windows lifecycle management
 //    TODO: only refresh windows that had changed (handler called on)
 //    TODO: input window flag for popupness -> if set delete when return
+//    TODO: when starting no window indicates focus
 // -------------------------------------------------
 
 // FEATURE-------------------------------------------
@@ -48,7 +49,8 @@
 #include "ncwrap_helper.h"
 #include "ncwrap_impl.h"
 
-static window_handle_t _window = NULL;
+static window_handle_t g_wh = NULL;
+static window_handle_t g_twh = NULL;
 
 ncw_err
 ncw_init(void) {
@@ -119,7 +121,7 @@ fail:
 }
 
 window_handle_t
-_window_register(update_t update, event_handler_t handler) {
+window_register(update_t update, event_handler_t handler) {
 
     // malloc new element
     window_handle_t new = (window_handle_t)malloc(sizeof(struct window_handle));
@@ -132,63 +134,66 @@ _window_register(update_t update, event_handler_t handler) {
     new->event_handler = handler;
 
     // if empty
-    if (NULL == _window) {
-        // if first in _window
+    if (NULL == g_wh) {
+        // if first in g_wh
         new->prev = new;
         new->next = new;
-        _window = new;
+        g_wh = new;
     } else {
         // if not first init prev
-        _window->prev->next = new;
-        new->prev = _window->prev;
+        g_wh->prev->next = new;
+        new->prev = g_wh->prev;
 
-        _window->prev = new;
-        new->next = _window;
+        g_wh->prev = new;
+        new->next = g_wh;
     }
 
     return new;
 }
 
 void
-_window_unregister(window_handle_t window_handle) {
+window_unregister(window_handle_t wh) {
 
     // invalid pointer
-    if (NULL == window_handle) {
+    if (NULL == wh) {
         return;
     }
 
-    // _window points here
-    if (_window == window_handle) {
+    // g_wh points here
+    if (g_wh == wh) {
 
         // this is the last element
-        if (_window == window_handle->prev &&
-            window_handle->prev == window_handle->next) {
-            _window = NULL;
+        if (g_wh == wh->prev && wh->prev == wh->next) {
+            g_wh = NULL;
             goto clean;
 
         } else {
-            _window = window_handle->next;
+            g_wh = wh->next;
         }
     }
 
-    // _window points somewhere else
-    window_handle->prev->next = window_handle->next;
-    window_handle->next->prev = window_handle->prev;
+    // g_wh points somewhere else
+    wh->prev->next = wh->next;
+    wh->next->prev = wh->prev;
 
 clean:
-    free(window_handle);
+    free(wh);
 }
 
 void
 ncw_update(void) {
 
-    if (NULL == _window) {
+    if (NULL == g_wh) {
         return;
     }
 
-    for (window_handle_t iter = _window;; iter = iter->next) {
+    // update g_wh last
+    for (window_handle_t iter = g_wh->next;; iter = iter->next) {
+        if (NULL == iter || NULL == iter->update.cb) {
+            return;
+        }
         iter->update.cb(iter->update.ctx);
-        if (_window == iter->next) {
+        if (g_wh == iter) {
             break;
         }
     }
@@ -200,44 +205,28 @@ ncw_update(void) {
 }
 
 void
-ncw_focus_step(window_handle_t *focus) {
+ncw_focus_step(void) {
 
-    if (NULL == focus || NULL == *focus) {
+    if (NULL == g_wh) {
         return;
     }
 
     // notify the last handler
-    (*focus)->event_handler.cb(FOCUS_OFF, (*focus)->event_handler.ctx);
+    g_wh->event_handler.cb(FOCUS_OFF, g_wh->event_handler.ctx);
 
     // find the next handler
-    *focus = (*focus)->next;
-    while (NULL == (*focus)->event_handler.cb) {
-        *focus = (*focus)->next;
+    g_wh = g_wh->next;
+    while (NULL == g_wh->event_handler.cb) {
+        g_wh = g_wh->next;
     }
 
     // notify the next handler
-    (*focus)->event_handler.cb(FOCUS_ON, (*focus)->event_handler.ctx);
-}
-
-window_handle_t
-ncw_focus_get(void) {
-
-    window_handle_t focus = _window;
-
-    if (NULL != focus) {
-        if (NULL != focus->event_handler.cb) {
-            focus->event_handler.cb(FOCUS_ON, focus->event_handler.ctx);
-        } else {
-            ncw_focus_step(&focus);
-        }
-    }
-
-    return focus; //< potentially NULL
+    g_wh->event_handler.cb(FOCUS_ON, g_wh->event_handler.ctx);
 }
 
 void
-ncw_event_handler(int event, window_handle_t focus) {
-    focus->event_handler.cb(event, focus->event_handler.ctx);
+ncw_event_handler(int event) {
+    g_wh->event_handler.cb(event, g_wh->event_handler.ctx);
 }
 
 int
@@ -291,8 +280,8 @@ ncw_input_window_init(input_window_t *iw, int x, int y, int width,
     event_handler_t handler = {.cb = input_window_handler, .ctx = (void *)iw};
 
     // register window for the event handler
-    (*iw)->_window = _window_register(update, handler);
-    if (NULL == (*iw)->_window) {
+    (*iw)->wh = window_register(update, handler);
+    if (NULL == (*iw)->wh) {
         err = NCW_INSUFFICIENT_MEMORY;
         goto delw;
     }
@@ -300,7 +289,7 @@ ncw_input_window_init(input_window_t *iw, int x, int y, int width,
     (*iw)->width = width;
 
     // set output
-    (*iw)->cb = NULL;
+    (*iw)->cb = 0;
     (*iw)->ctx = NULL;
 
     (*iw)->buf = (char *)calloc(_BUFSZ, sizeof(char));
@@ -316,19 +305,27 @@ ncw_input_window_init(input_window_t *iw, int x, int y, int width,
         goto cleanall;
     }
 
-    (*iw)->is_popup = is_popup;
     (*iw)->buf_sz = _BUFSZ;
     (*iw)->line_sz = 0;
     (*iw)->display_offs = 0;
     (*iw)->cursor_offs = 0;
     (*iw)->focus = 0;
 
+    // borrow focus for popup
+    (*iw)->is_popup = is_popup;
+    if (is_popup) {
+        g_twh = g_wh;
+        g_wh = (*iw)->wh;
+        g_twh->event_handler.cb(FOCUS_OFF, g_wh->event_handler.ctx);
+        g_wh->event_handler.cb(FOCUS_ON, g_wh->event_handler.ctx);
+    }
+
 end:
     return err;
 cleanall:
     free((void *)(*iw)->buf);
 unreg:
-    _window_unregister((*iw)->_window);
+    window_unregister((*iw)->wh);
 delw:
     delwin((*iw)->window);
 clean:
@@ -357,7 +354,7 @@ ncw_input_window_close(input_window_t *iw) {
         goto end;
     }
 
-    _window_unregister((*iw)->_window);
+    window_unregister((*iw)->wh);
 
     free((void *)(*iw)->buf);
     free((void *)(*iw)->display);
@@ -478,11 +475,21 @@ input_window_handler(int event, void *window_ctx) {
 
         // return the input string
         if (NULL != iw->cb) {
+            printf("%p\n", NULL);
             iw->cb(iw->buf, iw->buf_sz, iw->ctx);
         }
 
         // close after input
         if (iw->is_popup) {
+            if (g_wh == g_wh->next) {
+                g_wh = NULL;
+                g_twh = NULL;
+            } else {
+                g_wh->event_handler.cb(FOCUS_OFF, g_wh->event_handler.ctx);
+                g_twh->event_handler.cb(FOCUS_ON, g_wh->event_handler.ctx);
+                g_wh = g_twh;
+                g_twh = NULL;
+            }
             ncw_input_window_close(&iw);
             goto end;
         }
@@ -600,8 +607,8 @@ ncw_scroll_window_init(scroll_window_t *sw, int x, int y, int width, int height,
     event_handler_t handler = {.cb = NULL, .ctx = NULL};
 
     // register window for the event handler
-    (*sw)->_window = _window_register(update, handler);
-    if (NULL == (*sw)->_window) {
+    (*sw)->wh = window_register(update, handler);
+    if (NULL == (*sw)->wh) {
         err = NCW_INSUFFICIENT_MEMORY;
         goto cleanall;
     }
@@ -643,7 +650,7 @@ ncw_scroll_window_close(scroll_window_t *sw) {
         goto end;
     }
 
-    _window_unregister((*sw)->_window);
+    window_unregister((*sw)->wh);
 
     free((void *)(*sw)->next_line);
     free((void *)*sw);
@@ -753,8 +760,8 @@ ncw_menu_window_init(menu_window_t *mw, int x, int y, int width, int height,
     event_handler_t handler = {.cb = menu_window_handler, .ctx = (void *)mw};
 
     // register window for the event handler
-    (*mw)->_window = _window_register(update, handler);
-    if (NULL == (*mw)->_window) {
+    (*mw)->wh = window_register(update, handler);
+    if (NULL == (*mw)->wh) {
         goto cleanall;
     }
 
@@ -795,7 +802,7 @@ ncw_menu_window_close(menu_window_t *mw) {
         goto end;
     }
 
-    _window_unregister((*mw)->_window);
+    window_unregister((*mw)->wh);
 
     for (int i = 0; i < (*mw)->options_num; ++i) {
         free((void *)((*mw)->options + i)->label);
