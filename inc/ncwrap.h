@@ -15,10 +15,10 @@
 #define OK (0)
 
 typedef enum {
-    NCW_OK = 0,              // OK
-    NCW_NCURSES_FAIL,        // ncurses library ran into error (?)
-    NCW_INVALID_PARAM,       // invalid parameter for function
-    NCW_INSUFFICIENT_MEMORY, // application ran out of memory
+  NCW_OK = 0,              // OK
+  NCW_NCURSES_FAIL,        // ncurses library ran into error (?)
+  NCW_INVALID_PARAM,       // invalid parameter for function
+  NCW_INSUFFICIENT_MEMORY, // application ran out of memory
 } ncw_err;
 
 // window handler type
