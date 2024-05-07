@@ -51,7 +51,6 @@
 #include "ncwrap_impl.h"
 
 static window_handle_t g_wh = NULL;
-static window_handle_t g_twh = NULL;
 
 ncw_err
 ncw_init(void) {
