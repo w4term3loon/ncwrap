@@ -8,8 +8,3 @@ Depends on the ncurses development library, to install run:
 
     $ apt install libncurses-dev
 
-Build the lib with:
-
-    $ mkdir build
-    $ cmake -B ./build -S ./
-    $ cmake --build ./build
