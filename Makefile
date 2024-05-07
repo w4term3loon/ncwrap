@@ -10,7 +10,7 @@ static: $(OUT).a
 shared: $(OUT).so
 all: static
 
-app: $(OUT).a
+app: $(OUT).a app.c
 	$(CC) -lncurses $(CFLAGS) app.c $< -o app
 
 $(OUT).so: $(OUT).o

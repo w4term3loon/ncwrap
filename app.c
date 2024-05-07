@@ -8,38 +8,6 @@ cb(void *ctx) {
   ++*(int *)ctx;
 }
 
-struct add_option_ctx {
-  menu_window_t mw;
-  void (*demon_cb)(void *);
-  void *demon_ctx;
-};
-
-// void
-// create_option(char *buf, size_t bufsz, void *ctx) {
-//     struct add_option_ctx *aoc = (struct add_option_ctx *)ctx;
-//     ncw_menu_window_add_option(aoc->mw, buf, aoc->cb, aoc->ctx);
-// }
-
-void
-add_option(void *ctx) {
-  input_window_t iw = NULL;
-  ncw_input_window_init(&iw, 2, 2, 20, "demon", 1); //< make window popup
-  //  ncw_input_window_set_output(iw, create_option, ctx);
-}
-
-// void
-// delete_option(void *ctx) {
-//
-//     input_window_t iw = NULL;
-//     ncw_input_window_init(&iw, 10, 10, 20, "delete");
-//
-//     char buf[20];
-//     ncw_input_window_read(iw, buf, sizeof buf);
-//     ncw_input_window_close(&iw);
-//
-//     ncw_menu_window_delete_option((menu_window_t)ctx, buf);
-// }
-
 void
 scroll_output(char *buf, size_t bufsz, void *ctx) {
   scroll_window_t sw = (scroll_window_t)ctx;
@@ -84,16 +52,6 @@ main(void) {
   }
 
   err = ncw_menu_window_add_option(mw, "option2", cb, (void *)&cnt);
-  if (err != NCW_OK) {
-    goto menu;
-  }
-
-  struct add_option_ctx aoc;
-  aoc.mw = mw;
-  aoc.demon_cb = cb;
-  aoc.demon_ctx = (void *)&cnt;
-
-  err = ncw_menu_window_add_option(mw, "add", add_option, (void *)&aoc);
   if (err != NCW_OK) {
     goto menu;
   }

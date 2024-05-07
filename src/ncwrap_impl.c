@@ -15,6 +15,7 @@
 //    TODO: only refresh windows that had changed (handler called on)
 //    TODO: input window flag for popupness -> if set delete when return
 //    TODO: when starting no window indicates focus
+//    TODO: if input window output is not set segfault
 // -------------------------------------------------
 
 // FEATURE-------------------------------------------
@@ -288,7 +289,7 @@ ncw_input_window_init(input_window_t *iw, int x, int y, int width,
   (*iw)->width = width;
 
   // set output
-  (*iw)->cb = 0;
+  (*iw)->cb = NULL;
   (*iw)->ctx = NULL;
 
   (*iw)->buf = (char *)calloc(_BUFSZ, sizeof(char));
@@ -309,15 +310,6 @@ ncw_input_window_init(input_window_t *iw, int x, int y, int width,
   (*iw)->display_offs = 0;
   (*iw)->cursor_offs = 0;
   (*iw)->focus = 0;
-
-  // borrow focus for popup
-  (*iw)->is_popup = is_popup;
-  if (is_popup) {
-    g_twh = g_wh;
-    g_wh = (*iw)->wh;
-    g_twh->event_handler.cb(FOCUS_OFF, g_wh->event_handler.ctx);
-    g_wh->event_handler.cb(FOCUS_ON, g_wh->event_handler.ctx);
-  }
 
 end:
   return err;
@@ -434,7 +426,6 @@ fail:
 ncw_err
 input_window_handler(int event, void *window_ctx) {
 
-  // printf("event:%d->", event);
   ncw_err err = NCW_OK;
   input_window_t iw = *((input_window_t *)window_ctx);
 
@@ -474,23 +465,7 @@ input_window_handler(int event, void *window_ctx) {
 
     // return the input string
     if (NULL != iw->cb) {
-      printf("%p\n", NULL);
       iw->cb(iw->buf, iw->buf_sz, iw->ctx);
-    }
-
-    // close after input
-    if (iw->is_popup) {
-      if (g_wh == g_wh->next) {
-        g_wh = NULL;
-        g_twh = NULL;
-      } else {
-        g_wh->event_handler.cb(FOCUS_OFF, g_wh->event_handler.ctx);
-        g_twh->event_handler.cb(FOCUS_ON, g_wh->event_handler.ctx);
-        g_wh = g_twh;
-        g_twh = NULL;
-      }
-      ncw_input_window_close(&iw);
-      goto end;
     }
 
     free((void *)iw->buf);
