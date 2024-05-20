@@ -43,7 +43,6 @@
 #include <unistd.h>
 
 #include "ncurses.h"
-
 #include "ncwrap.h"
 
 #include "ncwrap_helper.h"
@@ -244,113 +243,109 @@ ncw_input_window_init(input_window_t *iw, int x, int y, int width,
                       const char *title, char is_popup) {
 
   ncw_err err = NCW_OK;
-
-  if (NULL == title) {
+  if (NULL == title || 2 >= width) {
     err = NCW_INVALID_PARAM;
-    goto end;
+    goto _end;
   }
 
-  if (2 >= width) {
-    err = NCW_INVALID_PARAM;
-    goto end;
-  }
-
-  // this really should not be an input_window_t since there is a variable
-  // length string stored after the struct but its fine for now
-  *iw = (input_window_t)malloc(sizeof(struct input_window) + strlen(title) + 1);
+  // Input window handler
+  *iw = (input_window_t)malloc(sizeof(struct input_window));
   if (NULL == *iw) {
     err = NCW_INSUFFICIENT_MEMORY;
-    goto end;
-  }
-  // store title right after the window struct
-  (*iw)->title = (char *)(*iw + 1);
-  (void)safe_strncpy((*iw)->title, title, strlen(title) + 1);
-
-  // create the window entity with fix 3 height
-  (*iw)->window = newwin(3, width, y, x);
-  if (NULL == (*iw)->window) {
-    err = NCW_NCURSES_FAIL;
-    goto clean;
+    goto _end;
   }
 
-  // create structs for the event handler registration
-  update_t update = {.cb = input_window_update, .ctx = (void *)iw};
-  event_handler_t handler = {.cb = input_window_handler, .ctx = (void *)iw};
-
-  // register window for the event handler
-  (*iw)->wh = window_register(update, handler);
-  if (NULL == (*iw)->wh) {
-    err = NCW_INSUFFICIENT_MEMORY;
-    goto delw;
-  }
-
+  // Settings
   (*iw)->width = width;
-
-  // set output
   (*iw)->cb = NULL;
   (*iw)->ctx = NULL;
-
-  (*iw)->buf = (char *)calloc(_BUFSZ, sizeof(char));
-  if (NULL == (*iw)->buf) {
-    err = NCW_INSUFFICIENT_MEMORY;
-    goto unreg;
-  }
-
-  // +1 for terminating '\0'
-  (*iw)->display = (char *)calloc((size_t)(*iw)->width - 2 + 1, sizeof(char));
-  if (NULL == (*iw)->display) {
-    err = NCW_INSUFFICIENT_MEMORY;
-    goto cleanall;
-  }
-
   (*iw)->buf_sz = _BUFSZ;
   (*iw)->line_sz = 0;
   (*iw)->display_offs = 0;
   (*iw)->cursor_offs = 0;
   (*iw)->focus = 0;
 
-end:
+  // Title
+  (*iw)->title = (char *)malloc(strlen(title) + 1);
+  if (NULL != (*iw)->title) {
+    (void)safe_strncpy((*iw)->title, title, strlen(title) + 1);
+  } else {
+    err = NCW_INSUFFICIENT_MEMORY;
+    goto _handl;
+  }
+
+  // Ncurses window
+  (*iw)->window = newwin(3, width, y, x);
+  if (NULL == (*iw)->window) {
+    err = NCW_NCURSES_FAIL;
+    goto _title;
+  }
+
+  // Event funtions
+  update_t update = {.cb = input_window_update, .ctx = (void *)iw};
+  event_handler_t handler = {.cb = input_window_handler, .ctx = (void *)iw};
+  (*iw)->wh = window_register(update, handler);
+  if (NULL == (*iw)->wh) {
+    err = NCW_INSUFFICIENT_MEMORY;
+    goto _window;
+  }
+
+  // Stored buffer
+  (*iw)->buf = (char *)calloc(_BUFSZ, sizeof(char));
+  if (NULL == (*iw)->buf) {
+    err = NCW_INSUFFICIENT_MEMORY;
+    goto _event;
+  }
+
+  // Displayed chunk
+  (*iw)->display = (char *)calloc((size_t)(*iw)->width - 2 + 1,
+                                  sizeof(char)); //< +1 terminating '\0'
+  if (NULL == (*iw)->display) {
+    err = NCW_INSUFFICIENT_MEMORY;
+    goto _buf;
+  }
+
+_end:
   return err;
-cleanall:
+_buf:
   free((void *)(*iw)->buf);
-unreg:
+_event:
   window_unregister((*iw)->wh);
-delw:
+_window:
   delwin((*iw)->window);
-clean:
+_title:
+  free((*iw)->title);
+_handl:
   free((void *)*iw);
   *iw = NULL;
-  goto end;
+  goto _end;
 }
 
 ncw_err
 ncw_input_window_close(input_window_t *iw) {
 
   ncw_err err = NCW_OK;
-
   if (NULL == *iw) {
     err = NCW_INVALID_PARAM;
-    goto end;
+    goto _end;
   }
 
-  if (OK != window_clear((*iw)->window)) {
+  // NOTE: this may not be the best solution
+  // since tis loses the handle for the memory
+  if (OK != window_clear((*iw)->window) && OK != delwin((*iw)->window)) {
     err = NCW_NCURSES_FAIL;
-    goto end;
-  }
-
-  if (OK != delwin((*iw)->window)) {
-    err = NCW_NCURSES_FAIL;
-    goto end;
+    // fallthrough
   }
 
   window_unregister((*iw)->wh);
 
   free((void *)(*iw)->buf);
   free((void *)(*iw)->display);
+  free((void *)(*iw)->title);
   free((void *)*iw);
   *iw = NULL;
 
-end:
+_end:
   return err;
 }
 
@@ -373,6 +368,7 @@ input_window_update(void *window_ctx) {
   ncw_err err = NCW_OK;
   input_window_t iw = *((input_window_t *)window_ctx);
 
+  // clear the display buffer
   memset(iw->display, 0, (size_t)iw->width - 2 + 1);
 
   // -1 for the cursor
@@ -387,38 +383,38 @@ input_window_update(void *window_ctx) {
 
   if (OK != window_content_clear(iw->window, iw->title)) {
     free((void *)iw->display);
-    goto fail;
+    goto _fail;
   }
 
   // print the portion that should be visible
   if (OK != mvwprintw(iw->window, 1, 1, "%s", iw->display)) {
     free((void *)iw->display);
-    goto fail;
+    goto _fail;
   }
 
   // left indicator
   if (iw->display_offs != 0) {
     if (OK != mvwprintw(iw->window, 1, 0, "<")) {
-      goto fail;
+      goto _fail;
     }
   }
 
   // right indicator
   if (iw->line_sz - iw->display_offs + 1 > iw->width - 2) {
     if (OK != mvwprintw(iw->window, 1, iw->width - 1, ">")) {
-      goto fail;
+      goto _fail;
     }
   }
 
   if (OK != wnoutrefresh(iw->window)) {
-    goto fail;
+    goto _fail;
   }
 
-end:
+_end:
   return err;
-fail:
+_fail:
   err = NCW_NCURSES_FAIL;
-  goto end;
+  goto _end;
 }
 
 ncw_err
@@ -470,7 +466,7 @@ input_window_handler(int event, void *window_ctx) {
     iw->buf = (char *)calloc(_BUFSZ, sizeof(char));
     if (NULL == iw->buf) {
       err = NCW_INSUFFICIENT_MEMORY;
-      goto end;
+      goto _end;
     }
 
     iw->buf_sz = _BUFSZ;
@@ -509,7 +505,7 @@ input_window_handler(int event, void *window_ctx) {
 
     // ignore control ascii
     if (event < 32 || event > 127) {
-      goto end;
+      goto _end;
     }
 
     // increase buffer size if needed
@@ -520,10 +516,10 @@ input_window_handler(int event, void *window_ctx) {
         iw->buf = realloc(iw->buf, iw->buf_sz);
         if (NULL == iw->buf) {
           err = NCW_INSUFFICIENT_MEMORY;
-          goto end;
+          goto _end;
         }
       } else {
-        goto end;
+        goto _end;
       }
     }
 
@@ -538,7 +534,7 @@ input_window_handler(int event, void *window_ctx) {
     }
   }
 
-end:
+_end:
   return err;
 }
 

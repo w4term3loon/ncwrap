@@ -15,10 +15,10 @@ debug: $(IFACE) src/ncwrap_impl.c app.c
 app: libncw.o app.c
 	$(CC) $(CFLAGS) app.c $< -o app -lncurses
 
-libncw.so: libncw.so: libncw.o
+libncw.so: libncw.o
 	$(CC) $(LD) -$@ $< -o $@
 
-libncw.a: libncw.a: libncw.o
+libncw.a: libncw.o
 	ar rcs $@ $<
 
 libncw.o: src/ncwrap_impl.c $(IFACE)
