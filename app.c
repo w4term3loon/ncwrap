@@ -38,7 +38,7 @@ main(void) {
   }
 
   // set output for the input window
-  // ncw_input_window_set_output(iw, scroll_output, (void *)sw);
+  ncw_input_window_set_output(iw, scroll_output, (void *)sw);
 
   menu_window_t mw = NULL;
   err = ncw_menu_window_init(&mw, 1, 0, 15, 15, "menu");

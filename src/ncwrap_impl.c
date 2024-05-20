@@ -239,8 +239,8 @@ ncw_err
 input_window_handler(int event, void *window_ctx);
 
 ncw_err
-ncw_input_window_init(input_window_t *iw, int x, int y, int width,
-                      const char *title, char is_popup) {
+ncw_input_window_init(input_window_t *iw, int x, int y, int width, const char *title,
+                      char is_popup) {
 
   ncw_err err = NCW_OK;
   if (NULL == title || 2 >= width) {
@@ -248,7 +248,7 @@ ncw_input_window_init(input_window_t *iw, int x, int y, int width,
     goto _end;
   }
 
-  // Input window handler
+  // Input window handle
   *iw = (input_window_t)malloc(sizeof(struct input_window));
   if (NULL == *iw) {
     err = NCW_INSUFFICIENT_MEMORY;
@@ -271,7 +271,7 @@ ncw_input_window_init(input_window_t *iw, int x, int y, int width,
     (void)safe_strncpy((*iw)->title, title, strlen(title) + 1);
   } else {
     err = NCW_INSUFFICIENT_MEMORY;
-    goto _handl;
+    goto _handle;
   }
 
   // Ncurses window
@@ -281,7 +281,7 @@ ncw_input_window_init(input_window_t *iw, int x, int y, int width,
     goto _title;
   }
 
-  // Event funtions
+  // Event functions
   update_t update = {.cb = input_window_update, .ctx = (void *)iw};
   event_handler_t handler = {.cb = input_window_handler, .ctx = (void *)iw};
   (*iw)->wh = window_register(update, handler);
@@ -297,13 +297,14 @@ ncw_input_window_init(input_window_t *iw, int x, int y, int width,
     goto _event;
   }
 
+#define LINE_TERM 1
   // Displayed chunk
-  (*iw)->display = (char *)calloc((size_t)(*iw)->width - 2 + 1,
-                                  sizeof(char)); //< +1 terminating '\0'
+  (*iw)->display = (char *)calloc((size_t)(*iw)->width - 2 + LINE_TERM, sizeof(char));
   if (NULL == (*iw)->display) {
     err = NCW_INSUFFICIENT_MEMORY;
     goto _buf;
   }
+#undef LINE_TERM
 
 _end:
   return err;
@@ -315,7 +316,7 @@ _window:
   delwin((*iw)->window);
 _title:
   free((*iw)->title);
-_handl:
+_handle:
   free((void *)*iw);
   *iw = NULL;
   goto _end;
@@ -440,8 +441,7 @@ input_window_handler(int event, void *window_ctx) {
       del(iw->buf, iw->buf_sz, iw->display_offs + iw->cursor_offs - 1);
 
       if (iw->display_offs != 0 &&
-          (iw->cursor_offs + iw->display_offs == iw->line_sz ||
-           iw->cursor_offs <= iw->width)) {
+          (iw->cursor_offs + iw->display_offs == iw->line_sz || iw->cursor_offs <= iw->width)) {
         iw->display_offs -= 1;
       } else {
         iw->cursor_offs -= 1;
@@ -546,84 +546,87 @@ ncw_scroll_window_init(scroll_window_t *sw, int x, int y, int width, int height,
                        const char *title) {
 
   ncw_err err = NCW_OK;
-
-  if (NULL == title) {
+  if (NULL == title || 2 > width || 2 > height) {
     err = NCW_INVALID_PARAM;
-    goto end;
+    goto _end;
   }
 
-  // store title right after window struct
-  *sw =
-      (scroll_window_t)malloc(sizeof(struct scroll_window) + strlen(title) + 1);
+  // Scroll window handle
+  *sw = (scroll_window_t)malloc(sizeof(struct scroll_window));
   if (NULL == *sw) {
     err = NCW_INSUFFICIENT_MEMORY;
-    goto end;
+    goto _end;
   }
 
-  (*sw)->title = (char *)(*sw + 1);
-  (void)safe_strncpy((*sw)->title, title, strlen(title) + 1);
-
-  // create window
-  (*sw)->window = newwin(height, width, y, x);
-  if (NULL == (*sw)->window) {
-    err = NCW_NCURSES_FAIL;
-    goto clean;
-  }
-
-  update_t update = {.cb = scroll_window_update, .ctx = (void *)sw};
-  event_handler_t handler = {.cb = NULL, .ctx = NULL};
-
-  // register window for the event handler
-  (*sw)->wh = window_register(update, handler);
-  if (NULL == (*sw)->wh) {
-    err = NCW_INSUFFICIENT_MEMORY;
-    goto cleanall;
-  }
-
+  // Settings
   (*sw)->width = width;
   (*sw)->height = height;
   (*sw)->next_line = NULL;
 
+  // Title
+  (*sw)->title = (char *)malloc(strlen(title) + 1);
+  if (NULL != (*sw)->title) {
+    (void)safe_strncpy((*sw)->title, title, strlen(title) + 1);
+  } else {
+    err = NCW_INSUFFICIENT_MEMORY;
+    goto _handle;
+  }
+
+  // Ncurses window
+  (*sw)->window = newwin(height, width, y, x);
+  if (NULL == (*sw)->window) {
+    err = NCW_NCURSES_FAIL;
+    goto _title;
+  }
+
+  // Event functions
+  update_t update = {.cb = scroll_window_update, .ctx = (void *)sw};
+  event_handler_t handler = {.cb = NULL, .ctx = NULL};
+  (*sw)->wh = window_register(update, handler);
+  if (NULL == (*sw)->wh) {
+    err = NCW_INSUFFICIENT_MEMORY;
+    goto _window;
+  }
+
   // enable scrolling in this window
   scrollok((*sw)->window, TRUE);
 
-end:
+_end:
   return err;
-cleanall:
+_window:
   delwin((*sw)->window);
-clean:
+_title:
+  free((*sw)->title);
+_handle:
   free((void *)*sw);
   *sw = NULL;
-  goto end;
+  goto _end;
 }
 
 ncw_err
 ncw_scroll_window_close(scroll_window_t *sw) {
 
   ncw_err err = NCW_OK;
-
   if (NULL == *sw) {
     err = NCW_INVALID_PARAM;
-    goto end;
+    goto _end;
   }
 
-  if (OK != window_clear((*sw)->window)) {
-    err = NCW_INVALID_PARAM;
-    goto end;
-  }
-
-  if (OK != delwin((*sw)->window)) {
+  // NOTE: this may not be the best solution
+  // since tis loses the handle for the memory
+  if (OK != window_clear((*sw)->window) || OK != delwin((*sw)->window)) {
     err = NCW_NCURSES_FAIL;
-    goto end;
+    // fallthrough
   }
 
   window_unregister((*sw)->wh);
 
   free((void *)(*sw)->next_line);
+  free((void *)(*sw)->title);
   free((void *)*sw);
   *sw = NULL;
 
-end:
+_end:
   return err;
 }
 
@@ -635,42 +638,42 @@ scroll_window_update(void *window_ctx) {
 
   // if there is no new next line, skip
   if (NULL == sw->next_line) {
-    goto skip;
+    goto _skip;
   }
 
   // displace all lines 1 up (literally)
   if (OK != scroll(sw->window)) {
-    goto fail;
+    goto _fail;
   }
 
   // clear the place of the added line
   if (OK != wmove(sw->window, sw->height - 2, 1)) {
-    goto fail;
+    goto _fail;
   }
 
   if (OK != wclrtoeol(sw->window)) {
-    goto fail;
+    goto _fail;
   }
 
   // print the line in the correct place
   if (OK != mvwprintw(sw->window, sw->height - 2, 1, "%s", sw->next_line)) {
-    goto fail;
+    goto _fail;
   }
 
   // free next line for new one
   free((void *)sw->next_line);
   sw->next_line = NULL;
 
-skip:
-  // reconstruct the widnow box
+_skip: //< reconstruct the widnow box
   if (OK != window_draw_box(sw->window, sw->title)) {
-    goto fail;
+    goto _fail;
   }
-end:
+
+_end:
   return err;
-fail:
+_fail:
   err = NCW_NCURSES_FAIL;
-  goto end;
+  goto _end;
 }
 
 ncw_err
@@ -681,10 +684,11 @@ ncw_scroll_window_add_line(scroll_window_t sw, const char *line) {
   }
 
   sw->next_line = (char *)malloc(strlen(line) + 1);
-  if (NULL == sw->next_line) {
+  if (NULL != sw->next_line) {
+    (void)safe_strncpy(sw->next_line, line, strlen(line) + 1);
+  } else {
     return NCW_INSUFFICIENT_MEMORY;
   }
-  (void)safe_strncpy(sw->next_line, line, strlen(line) + 1);
 
   return NCW_OK;
 }
@@ -696,42 +700,22 @@ ncw_err
 menu_window_handler(int event, void *window_ctx);
 
 ncw_err
-ncw_menu_window_init(menu_window_t *mw, int x, int y, int width, int height,
-                     const char *title) {
+ncw_menu_window_init(menu_window_t *mw, int x, int y, int width, int height, const char *title) {
 
   ncw_err err = NCW_OK;
-
-  if (NULL == title) {
+  if (NULL == title || 2 > width || 2 > height) {
     err = NCW_INVALID_PARAM;
-    goto end;
+    goto _end;
   }
 
-  // store title right after the struct
-  *mw = (menu_window_t)malloc(sizeof(struct menu_window) + strlen(title) + 1);
+  // Menu window handle
+  *mw = (menu_window_t)malloc(sizeof(struct menu_window));
   if (NULL == *mw) {
     err = NCW_INSUFFICIENT_MEMORY;
-    goto end;
+    goto _end;
   }
 
-  (*mw)->title = (char *)(*mw + 1);
-  (void)safe_strncpy((*mw)->title, title, strlen(title) + 1);
-
-  // create window
-  (*mw)->window = newwin(height, width, y, x);
-  if (NULL == (*mw)->window) {
-    err = NCW_NCURSES_FAIL;
-    goto clean;
-  }
-
-  update_t update = {.cb = menu_window_update, .ctx = (void *)mw};
-  event_handler_t handler = {.cb = menu_window_handler, .ctx = (void *)mw};
-
-  // register window for the event handler
-  (*mw)->wh = window_register(update, handler);
-  if (NULL == (*mw)->wh) {
-    goto cleanall;
-  }
-
+  // Settings
   (*mw)->width = width;
   (*mw)->height = height;
   (*mw)->options = (option_t *)NULL;
@@ -739,34 +723,56 @@ ncw_menu_window_init(menu_window_t *mw, int x, int y, int width, int height,
   (*mw)->highlight = -1;
   (*mw)->highlight_buf = 0;
 
-end:
+  // Title
+  (*mw)->title = (char *)malloc(strlen(title) + 1);
+  if (NULL != (*mw)->title) {
+    (void)safe_strncpy((*mw)->title, title, strlen(title) + 1);
+  } else {
+    err = NCW_INSUFFICIENT_MEMORY;
+    goto _handle;
+  }
+
+  // Ncurses window
+  (*mw)->window = newwin(height, width, y, x);
+  if (NULL == (*mw)->window) {
+    err = NCW_NCURSES_FAIL;
+    goto _title;
+  }
+
+  // Event functions
+  update_t update = {.cb = menu_window_update, .ctx = (void *)mw};
+  event_handler_t handler = {.cb = menu_window_handler, .ctx = (void *)mw};
+  (*mw)->wh = window_register(update, handler);
+  if (NULL == (*mw)->wh) {
+    goto _window;
+  }
+
+_end:
   return err;
-cleanall:
+_window:
   delwin((*mw)->window);
-clean:
+_title:
+  free((*mw)->title);
+_handle:
   free((void *)*mw);
   *mw = NULL;
-  goto end;
+  goto _end;
 }
 
 ncw_err
 ncw_menu_window_close(menu_window_t *mw) {
 
   ncw_err err = NCW_OK;
-
   if (NULL == *mw) {
     err = NCW_INVALID_PARAM;
     goto end;
   }
 
-  // if (OK != window_clear((*mw)->window)) {
-  //     err = NCW_NCURSES_FAIL;
-  //     goto end;
-  // }
-
-  if (OK != delwin((*mw)->window)) {
+  // NOTE: this may not be the best solution
+  // since tis loses the handle for the memory
+  if (OK != window_clear((*mw)->window) || OK != delwin((*mw)->window)) {
     err = NCW_NCURSES_FAIL;
-    goto end;
+    // fallthrough
   }
 
   window_unregister((*mw)->wh);
@@ -776,6 +782,7 @@ ncw_menu_window_close(menu_window_t *mw) {
   }
 
   free((void *)(*mw)->options);
+  free((void *)(*mw)->title);
   free((void *)*mw);
   *mw = NULL;
 
@@ -833,8 +840,7 @@ fail:
 }
 
 ncw_err
-ncw_menu_window_add_option(menu_window_t mw, const char *label,
-                           void (*cb)(void *), void *ctx) {
+ncw_menu_window_add_option(menu_window_t mw, const char *label, void (*cb)(void *), void *ctx) {
 
   ncw_err err = NCW_OK;
 
@@ -851,8 +857,8 @@ ncw_menu_window_add_option(menu_window_t mw, const char *label,
   }
 
   // alocate place for the new option
-  option_t *new_options = (option_t *)realloc(
-      mw->options, (mw->options_num + 1) * sizeof(option_t));
+  option_t *new_options =
+      (option_t *)realloc(mw->options, (mw->options_num + 1) * sizeof(option_t));
   if (NULL == new_options) {
     err = NCW_INSUFFICIENT_MEMORY;
     goto end;
@@ -893,8 +899,7 @@ ncw_menu_window_delete_option(menu_window_t mw, const char *label) {
 
       squash(mw, i);
 
-      void *new_options =
-          realloc(mw->options, (mw->options_num - 1) * sizeof(option_t));
+      void *new_options = realloc(mw->options, (mw->options_num - 1) * sizeof(option_t));
       if (NULL == new_options) {
         err = NCW_INSUFFICIENT_MEMORY;
         goto end;
