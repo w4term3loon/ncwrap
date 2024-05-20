@@ -36,7 +36,6 @@
 //    TODO: err message box
 // --------------------------------------------------
 
-#include <math.h>
 #include <pthread.h>
 #include <stdarg.h>
 #include <stdlib.h>
