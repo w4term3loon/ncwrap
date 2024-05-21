@@ -1,13 +1,9 @@
-#ifndef NCWRAP_HELPER_H_HEADER_GUARD
-#define NCWRAP_HELPER_H_HEADER_GUARD
+#include <string.h>
+#include <unistd.h>
+#include <stdlib.h>
 
+#include "helper.h"
 #include "ncwrap_impl.h"
-
-#define _BUFSZ 32
-#define _BUFSZMAX 256
-
-#define FOCUS_ON (-254)
-#define FOCUS_OFF (-255)
 
 char *
 safe_strncpy(char *dst, const char *src, size_t size) {
@@ -41,7 +37,7 @@ void
 squash(menu_window_t mw, int option_offset) {
 
   // free dynamically allocated label
-  free((void *)(mw->options + option_offset)->label);
+  free(((mw->options + option_offset)->label));
 
   if (option_offset == mw->options_num - 1) {
 
@@ -117,4 +113,3 @@ end:
   return error;
 }
 
-#endif // NCWRAP_HELPER_H_HEADER_GUARD
