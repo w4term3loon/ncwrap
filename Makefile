@@ -21,7 +21,7 @@ libncw.a: $(OBJ)
 	ar rcs $@ $(OBJ)
 
 $(OBJ): src/%.o: src/%.c $(IFACE)
-	$(CC) -c -fPIC $(CFLAGS) $< -o $@
+	$(CC) -c -fPIC $(CFLAGS) $< -o $@ -Iinc
 
 clean:
 	rm -f ./$(OUT).[oa]

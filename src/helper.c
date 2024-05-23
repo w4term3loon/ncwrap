@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 #include "helper.h"
-#include "ncwrap_impl.h"
+#include "utils.h"
 
 char *
 safe_strncpy(char *dst, const char *src, size_t size) {

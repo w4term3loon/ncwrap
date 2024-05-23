@@ -5,17 +5,8 @@
 #include "ncwrap.h"
 
 #include "helper.h"
-#include "ncwrap_impl.h"
-
-// ------ NOTE: move to an interface and include
-window_handle_t
-window_register(update_t update, event_handler_t handler);
-void
-window_unregister(window_handle_t wh);
-// ------
-
-ncw_err
-scroll_window_update(void *window_ctx);
+#include "scroll.h"
+#include "window.h"
 
 ncw_err
 ncw_scroll_window_init(scroll_window_t *sw, int x, int y, int width, int height,
@@ -56,8 +47,8 @@ ncw_scroll_window_init(scroll_window_t *sw, int x, int y, int width, int height,
   }
 
   // Event functions
-  update_t update = {.cb = scroll_window_update, .ctx = (void *)sw};
-  event_handler_t handler = {.cb = NULL, .ctx = NULL};
+  struct update_t update = {.cb = scroll_window_update, .ctx = (void *)sw};
+  struct event_handler_t handler = {.cb = NULL, .ctx = NULL};
   (*sw)->wh = window_register(update, handler);
   if (NULL == (*sw)->wh) {
     err = NCW_INSUFFICIENT_MEMORY;
