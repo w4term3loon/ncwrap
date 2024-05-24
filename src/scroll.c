@@ -13,7 +13,7 @@ ncw_scroll_window_init(scroll_window_t *sw, int x, int y, int width, int height,
                        const char *title) {
 
   ncw_err err = NCW_OK;
-  if (NULL == title || 2 > width || 2 > height) {
+  if (NULL == title || 2 > width || 2 > height || NULL != *sw) {
     err = NCW_INVALID_PARAM;
     goto _end;
   }

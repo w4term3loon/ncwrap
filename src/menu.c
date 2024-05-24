@@ -12,7 +12,7 @@ ncw_err
 ncw_menu_window_init(menu_window_t *mw, int x, int y, int width, int height, const char *title) {
 
   ncw_err err = NCW_OK;
-  if (NULL == title || 2 > width || 2 > height) {
+  if (NULL == title || 2 > width || 2 > height || NULL != *mw) {
     err = NCW_INVALID_PARAM;
     goto _end;
   }

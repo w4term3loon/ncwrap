@@ -1,8 +1,7 @@
 ## TODO list
 ============
 ### Bugs:
-* opening multiple popups cause segfault when enter is hit.
-* if input window output is not set segfault
+* setting the output of an input window should be done before possible input (maybe init function)
 
 ### General improvements
 * PURGE THE FOCUS SYSTEM (~rework)
@@ -34,5 +33,4 @@
 * header menus for windows
 * macro keys for windows that call callbacks
 * err message box
-
 

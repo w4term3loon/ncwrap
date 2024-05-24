@@ -13,7 +13,7 @@ ncw_input_window_init(input_window_t *iw, int x, int y, int width, const char *t
                       char is_popup) {
 
   ncw_err err = NCW_OK;
-  if (NULL == title || 2 >= width) {
+  if (NULL == title || 2 >= width || NULL != *iw) {
     err = NCW_INVALID_PARAM;
     goto _end;
   }
