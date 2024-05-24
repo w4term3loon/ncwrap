@@ -34,4 +34,7 @@ get_window_handle(void);
 void
 set_window_handle(window_handle_t);
 
+void
+set_window_focus(window_handle_t);
+
 #endif // NCW_WINDOW_H_HEADER_GUARD

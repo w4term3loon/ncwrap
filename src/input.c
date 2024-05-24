@@ -26,6 +26,7 @@ ncw_input_window_init(input_window_t *iw, int x, int y, int width, const char *t
   }
 
   // Settings
+  (*iw)->is_popup = is_popup;
   (*iw)->width = width;
   (*iw)->cb = NULL;
   (*iw)->ctx = NULL;
@@ -58,6 +59,11 @@ ncw_input_window_init(input_window_t *iw, int x, int y, int width, const char *t
   if (NULL == (*iw)->wh) {
     err = NCW_INSUFFICIENT_MEMORY;
     goto _window;
+  }
+
+  // Set focus if popup
+  if ((*iw)->is_popup) {
+    set_window_focus((*iw)->wh);
   }
 
   // Stored buffer
@@ -211,7 +217,8 @@ input_window_handler(int event, void *window_ctx) {
       del(iw->buf, iw->buf_sz, iw->display_offs + iw->cursor_offs - 1);
 
       if (iw->display_offs != 0 &&
-          (iw->cursor_offs + iw->display_offs == iw->line_sz || iw->cursor_offs <= iw->width)) {
+          (iw->cursor_offs + iw->display_offs == iw->line_sz ||
+           iw->cursor_offs <= iw->width)) {
         iw->display_offs -= 1;
       } else {
         iw->cursor_offs -= 1;
@@ -230,6 +237,12 @@ input_window_handler(int event, void *window_ctx) {
     // return the input string
     if (NULL != iw->cb) {
       iw->cb(iw->buf, iw->buf_sz, iw->ctx);
+    }
+
+    if (iw->is_popup) {
+      ncw_focus_step();
+      ncw_input_window_close(&iw);
+      goto _end;
     }
 
     free((void *)iw->buf);

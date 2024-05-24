@@ -1,5 +1,7 @@
 #include <stdlib.h>
+#include <assert.h>
 
+#include "helper.h"
 #include "window.h"
 
 static window_handle_t g_wh = NULL;
@@ -72,5 +74,23 @@ window_unregister(window_handle_t wh) {
 
 clean:
   free(wh);
+}
+
+void
+set_window_focus(window_handle_t wh) {
+
+  if (NULL == wh) {
+    return;
+  }
+
+  // notify the last handler
+  get_window_handle()->event_handler.cb(FOCUS_OFF, get_window_handle()->event_handler.ctx);
+
+  // set window handler
+  set_window_handle(wh);
+  assert(get_window_handle() == wh);
+
+  // notify the next handler
+  get_window_handle()->event_handler.cb(FOCUS_ON, get_window_handle()->event_handler.ctx);
 }
 

@@ -1,41 +1,3 @@
-// VISUAL--------------------------------------------
-//    TODO: indicate nothing happened input window (retval?)
-//    TODO: indicate nothing happened menu window (retval?)
-//    TODO: enable resize of window
-//    TODO: add box border art
-// --------------------------------------------------
-
-// BUG-----------------------------------------------
-//    TODO: (??) separate different type of widnows into different files
-//    TODO: PURGE THE FOCUS SYSTEM
-//    TODO: set visibility on functions
-//    TODO: https://www.man7.org/linux/man-pages/man3/curs_inopts.3x.html
-//    TODO: comment for all magic constants
-//    TODO: support for popup windows lifecycle management
-//    TODO: only refresh windows that had changed (handler called on)
-//    TODO: input window flag for popupness -> if set delete when return
-//    TODO: when starting no window indicates focus
-//    TODO: if input window output is not set segfault
-// -------------------------------------------------
-
-// FEATURE-------------------------------------------
-//    TODO: err code interpreter fuction on interface
-//    TODO: logging with dlt or syslog or stde
-//    TODO: introduce thread safety ??
-//    TODO: terminal window
-//    TODO: debug window
-//    TODO: game window
-//    TODO: custom window
-//    TODO: window editor window
-//    TODO: save log from scroll window
-//    TODO: plot window
-//    TODO: UI windows that can display telemetry data
-//    TODO: login window
-//    TODO: header menus for windows
-//    TODO: macro keys for windows that call callbacks
-//    TODO: err message box
-// --------------------------------------------------
-
 #include <pthread.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -169,4 +131,5 @@ int
 ncw_getch(void) {
   return wgetch(stdscr);
 }
+
 

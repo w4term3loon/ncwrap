@@ -72,9 +72,8 @@ main(void) {
       ncw_focus_step();
       break;
 
-    case CTRL('t'):
-      ncw_input_window_init(&diw, 2, 2, 20, "added",
-                            1); //< make window popup
+    case CTRL('p'):
+      ncw_input_window_init(&diw, 2, 2, 20, "added", 1); //< make window popup
       break;
 
     case CTRL('x'):

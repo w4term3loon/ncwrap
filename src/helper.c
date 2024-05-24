@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 #include "helper.h"
-#include "utils.h"
+#include "menu.h"
 
 char *
 safe_strncpy(char *dst, const char *src, size_t size) {
