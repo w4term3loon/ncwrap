@@ -81,17 +81,17 @@ fail:
 void
 ncw_update(void) {
 
-  if (NULL == get_window_handle()) {
+  if (NULL == get_focus()) {
     return;
   }
 
   // update get_window_handle() last
-  for (window_handle_t iter = get_window_handle()->next;; iter = iter->next) {
+  for (window_handle_t iter = get_focus()->next;; iter = iter->next) {
     if (NULL == iter || NULL == iter->update.cb) {
       return;
     }
     iter->update.cb(iter->update.ctx);
-    if (get_window_handle() == iter) {
+    if (get_focus() == iter) {
       break;
     }
   }
@@ -105,31 +105,27 @@ ncw_update(void) {
 void
 ncw_focus_step(void) {
 
-  if (NULL == get_window_handle()) {
+  if (NULL == get_focus()) {
     return;
   }
 
-  // notify the last handler
-  get_window_handle()->event_handler.cb(FOCUS_OFF, get_window_handle()->event_handler.ctx);
-
   // find the next handler
-  set_window_handle(get_window_handle()->next);
-  while (NULL == get_window_handle()->event_handler.cb) {
-    set_window_handle(get_window_handle()->next);
+  window_handle_t iter = get_focus()->next;
+  while (NULL == iter->event_handler.cb) {
+    iter = iter->next;
   }
 
-  // notify the next handler
-  get_window_handle()->event_handler.cb(FOCUS_ON, get_window_handle()->event_handler.ctx);
+  // set the next handler
+  set_focus(iter);
 }
 
 void
 ncw_event_handler(int event) {
-  get_window_handle()->event_handler.cb(event, get_window_handle()->event_handler.ctx);
+  get_focus()->event_handler.cb(event, get_focus()->event_handler.ctx);
 }
 
 int
 ncw_getch(void) {
   return wgetch(stdscr);
 }
-
 

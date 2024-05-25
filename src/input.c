@@ -63,7 +63,7 @@ ncw_input_window_init(input_window_t *iw, int x, int y, int width, const char *t
 
   // Set focus if popup
   if ((*iw)->is_popup) {
-    set_window_focus((*iw)->wh);
+    set_focus((*iw)->wh);
   }
 
   // Stored buffer
@@ -198,33 +198,33 @@ ncw_err
 input_window_handler(int event, void *window_ctx) {
 
   ncw_err err = NCW_OK;
-  input_window_t iw = *((input_window_t *)window_ctx);
+  input_window_t *iw = ((input_window_t *)window_ctx);
 
   switch (event) {
   case FOCUS_ON:
-    iw->focus = FOCUS_ON;
+    (*iw)->focus = FOCUS_ON;
     break;
 
   case FOCUS_OFF:
-    iw->focus = FOCUS_OFF;
+    (*iw)->focus = FOCUS_OFF;
     break;
 
   case 127:
   case KEY_BACKSPACE:
     // if there are characters before the cursor that can be deleted
-    if (iw->display_offs != 0 || iw->cursor_offs != 0) {
+    if ((*iw)->display_offs != 0 || (*iw)->cursor_offs != 0) {
 
-      del(iw->buf, iw->buf_sz, iw->display_offs + iw->cursor_offs - 1);
+      del((*iw)->buf, (*iw)->buf_sz, (*iw)->display_offs + (*iw)->cursor_offs - 1);
 
-      if (iw->display_offs != 0 &&
-          (iw->cursor_offs + iw->display_offs == iw->line_sz ||
-           iw->cursor_offs <= iw->width)) {
-        iw->display_offs -= 1;
+      if ((*iw)->display_offs != 0 &&
+          ((*iw)->cursor_offs + (*iw)->display_offs == (*iw)->line_sz ||
+           (*iw)->cursor_offs <= (*iw)->width)) {
+        (*iw)->display_offs -= 1;
       } else {
-        iw->cursor_offs -= 1;
+        (*iw)->cursor_offs -= 1;
       }
 
-      iw->line_sz -= 1;
+      (*iw)->line_sz -= 1;
 
     } else { /* indicate nothing happened */
     }
@@ -235,48 +235,48 @@ input_window_handler(int event, void *window_ctx) {
   case KEY_ENTER:
 
     // return the input string
-    if (NULL != iw->cb) {
-      iw->cb(iw->buf, iw->buf_sz, iw->ctx);
+    if (NULL != (*iw)->cb) {
+      (*iw)->cb((*iw)->buf, (*iw)->buf_sz, (*iw)->ctx);
     }
 
-    if (iw->is_popup) {
+    if ((*iw)->is_popup) {
       ncw_focus_step();
-      ncw_input_window_close(&iw);
+      ncw_input_window_close(iw);
       goto _end;
     }
 
-    free((void *)iw->buf);
-    iw->buf = (char *)calloc(_BUFSZ, sizeof(char));
-    if (NULL == iw->buf) {
+    free((void *)(*iw)->buf);
+    (*iw)->buf = (char *)calloc(_BUFSZ, sizeof(char));
+    if (NULL == (*iw)->buf) {
       err = NCW_INSUFFICIENT_MEMORY;
       goto _end;
     }
 
-    iw->buf_sz = _BUFSZ;
+    (*iw)->buf_sz = _BUFSZ;
 
-    iw->line_sz = 0;
-    iw->display_offs = 0;
-    iw->cursor_offs = 0;
+    (*iw)->line_sz = 0;
+    (*iw)->display_offs = 0;
+    (*iw)->cursor_offs = 0;
 
     break;
 
   case KEY_LEFT:
-    if (iw->cursor_offs != 0) {
-      iw->cursor_offs -= 1;
+    if ((*iw)->cursor_offs != 0) {
+      (*iw)->cursor_offs -= 1;
     } else {
-      if (iw->display_offs != 0) {
-        iw->display_offs -= 1;
+      if ((*iw)->display_offs != 0) {
+        (*iw)->display_offs -= 1;
       }
     }
     break;
 
   case KEY_RIGHT:
-    if (iw->cursor_offs != iw->width - 3) {
-      if (iw->cursor_offs < iw->line_sz) {
-        iw->cursor_offs += 1;
+    if ((*iw)->cursor_offs != (*iw)->width - 3) {
+      if ((*iw)->cursor_offs < (*iw)->line_sz) {
+        (*iw)->cursor_offs += 1;
       }
-    } else if (iw->cursor_offs + iw->display_offs != iw->line_sz) {
-      iw->display_offs += 1;
+    } else if ((*iw)->cursor_offs + (*iw)->display_offs != (*iw)->line_sz) {
+      (*iw)->display_offs += 1;
     }
     break;
 
@@ -292,12 +292,12 @@ input_window_handler(int event, void *window_ctx) {
     }
 
     // increase buffer size if needed
-    if (iw->line_sz == iw->buf_sz - 1) {
-      if (iw->buf_sz < _BUFSZMAX) {
+    if ((*iw)->line_sz == (*iw)->buf_sz - 1) {
+      if ((*iw)->buf_sz < _BUFSZMAX) {
 
-        iw->buf_sz += _BUFSZ;
-        iw->buf = realloc(iw->buf, iw->buf_sz);
-        if (NULL == iw->buf) {
+        (*iw)->buf_sz += _BUFSZ;
+        (*iw)->buf = realloc((*iw)->buf, (*iw)->buf_sz);
+        if (NULL == (*iw)->buf) {
           err = NCW_INSUFFICIENT_MEMORY;
           goto _end;
         }
@@ -306,14 +306,14 @@ input_window_handler(int event, void *window_ctx) {
       }
     }
 
-    ins(iw->buf, iw->buf_sz, iw->display_offs + iw->cursor_offs, (char)event);
+    ins((*iw)->buf, (*iw)->buf_sz, (*iw)->display_offs + (*iw)->cursor_offs, (char)event);
 
-    ++iw->line_sz;
+    ++(*iw)->line_sz;
 
-    if (iw->width - 3 == iw->cursor_offs) {
-      ++iw->display_offs;
+    if ((*iw)->width - 3 == (*iw)->cursor_offs) {
+      ++(*iw)->display_offs;
     } else {
-      ++iw->cursor_offs;
+      ++(*iw)->cursor_offs;
     }
   }
 

@@ -29,12 +29,9 @@ void
 window_unregister(window_handle_t wh);
 
 window_handle_t
-get_window_handle(void);
+get_focus(void);
 
 void
-set_window_handle(window_handle_t);
-
-void
-set_window_focus(window_handle_t);
+set_focus(window_handle_t);
 
 #endif // NCW_WINDOW_H_HEADER_GUARD

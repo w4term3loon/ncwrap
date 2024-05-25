@@ -3,6 +3,7 @@
 * setting the output of an input window should be done before possible input (maybe init function)
 
 ### General improvements
+* interface option for input window buffer cap
 * rework the window functionality system, create a clear interface and internal methods
 * PURGE THE FOCUS SYSTEM (~rework)
 * set visibility on functions

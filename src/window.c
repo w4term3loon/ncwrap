@@ -4,16 +4,30 @@
 #include "helper.h"
 #include "window.h"
 
-static window_handle_t g_wh = NULL;
+// The global handle for the window buffer
+// that specifies which window receives the
+// events at any moment
+static window_handle_t g_focus = NULL;
 
 window_handle_t
-get_window_handle(void) {
-  return g_wh;
+get_focus(void) {
+  return g_focus;
 }
 
 void
-set_window_handle(window_handle_t wh) {
-  g_wh = wh;
+set_focus(window_handle_t wh) {
+
+  if (NULL == wh) {
+    return;
+  }
+
+  // notify the last handler
+  g_focus->event_handler.cb(FOCUS_OFF, g_focus->event_handler.ctx);
+
+  g_focus = wh;
+
+  // notify the next handler
+  g_focus->event_handler.cb(FOCUS_ON, g_focus->event_handler.ctx);
 }
 
 window_handle_t
@@ -30,18 +44,19 @@ window_register(struct update_t update, struct event_handler_t handler) {
   new->event_handler = handler;
 
   // if empty
-  if (NULL == g_wh) {
-    // if first in g_wh
+  if (NULL == g_focus) {
+    // if first window
     new->prev = new;
     new->next = new;
-    g_wh = new;
+    g_focus = new;
   } else {
-    // if not first init prev
-    g_wh->prev->next = new;
-    new->prev = g_wh->prev;
+    // init last facing side
+    g_focus->prev->next = new;
+    new->prev = g_focus->prev;
 
-    g_wh->prev = new;
-    new->next = g_wh;
+    // init first  facing side
+    g_focus->prev = new;
+    new->next = g_focus;
   }
 
   return new;
@@ -55,42 +70,24 @@ window_unregister(window_handle_t wh) {
     return;
   }
 
-  // g_wh points here
-  if (g_wh == wh) {
+  // g_focus points here
+  if (g_focus == wh) {
 
     // this is the last element
-    if (g_wh == wh->prev && wh->prev == wh->next) {
-      g_wh = NULL;
+    if (g_focus == wh->prev && wh->prev == wh->next) {
+      g_focus = NULL;
       goto clean;
 
     } else {
-      g_wh = wh->next;
+      g_focus = wh->next;
     }
   }
 
-  // g_wh points somewhere else
+  // g_focus points somewhere else
   wh->prev->next = wh->next;
   wh->next->prev = wh->prev;
 
 clean:
   free(wh);
-}
-
-void
-set_window_focus(window_handle_t wh) {
-
-  if (NULL == wh) {
-    return;
-  }
-
-  // notify the last handler
-  get_window_handle()->event_handler.cb(FOCUS_OFF, get_window_handle()->event_handler.ctx);
-
-  // set window handler
-  set_window_handle(wh);
-  assert(get_window_handle() == wh);
-
-  // notify the next handler
-  get_window_handle()->event_handler.cb(FOCUS_ON, get_window_handle()->event_handler.ctx);
 }
 
