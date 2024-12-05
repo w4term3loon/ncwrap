@@ -73,7 +73,8 @@ main(void) {
       break;
 
     case CTRL('p'):
-      ncw_input_window_init(&diw, 2, 2, 20, "added", 1); //< make window popup
+      ncw_input_window_init(&diw, 2, 2, 20, "added", 1);           //< make window popup
+      ncw_input_window_set_output(diw, scroll_output, (void *)sw); //< set output
       break;
 
     case CTRL('x'):

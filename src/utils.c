@@ -88,7 +88,8 @@ ncw_update(void) {
   // update get_window_handle() last
   for (window_handle_t iter = get_focus()->next;; iter = iter->next) {
     if (NULL == iter || NULL == iter->update.cb) {
-      return;
+      // window has no handler error
+      continue;
     }
     iter->update.cb(iter->update.ctx);
     if (get_focus() == iter) {
