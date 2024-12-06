@@ -63,6 +63,11 @@ window_register(struct update_t update, struct event_handler_t handler) {
     // init first  facing side
     g_focus->prev = new;
     new->next = g_focus;
+
+    // if the focused window is non-interactive
+    if (g_focus->event_handler.cb == NULL) {
+      ncw_focus_step();
+    }
   }
 
   return new;
