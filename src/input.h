@@ -18,21 +18,4 @@ struct input_window {
   int focus;
 };
 
-ncw_err
-ncw_input_window_init(input_window_t *iw, int x, int y, int width, const char *title,
-                      char is_popup);
-
-ncw_err
-ncw_input_window_close(input_window_t *iw);
-
-ncw_err
-ncw_input_window_set_output(input_window_t iw, output_cb cb, void *ctx);
-
-// Internal
-ncw_err
-input_window_update(void *window_ctx);
-
-ncw_err
-input_window_handler(int event, void *window_ctx);
-
 #endif // NCW_INPUT_H_HEADER_GURARD

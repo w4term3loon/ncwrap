@@ -9,6 +9,9 @@
 #include "window.h"
 
 ncw_err
+scroll_window_update(void *window_ctx);
+
+ncw_err
 ncw_scroll_window_init(scroll_window_t *sw, int x, int y, int width, int height,
                        const char *title) {
 

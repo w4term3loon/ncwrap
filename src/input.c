@@ -9,6 +9,12 @@
 #include "window.h"
 
 ncw_err
+input_window_update(void *window_ctx);
+
+ncw_err
+input_window_handler(int event, void *window_ctx);
+
+ncw_err
 ncw_input_window_init(input_window_t *iw, int x, int y, int width, const char *title,
                       char is_popup) {
 
