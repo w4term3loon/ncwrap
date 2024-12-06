@@ -5,8 +5,8 @@
 #include "ncwrap.h"
 
 #include "helper.h"
-#include "window.h"
 #include "menu.h"
+#include "window.h"
 
 ncw_err
 ncw_menu_window_init(menu_window_t *mw, int x, int y, int width, int height, const char *title) {

@@ -25,21 +25,6 @@ main(void) {
     goto end;
   }
 
-  input_window_t iw = NULL;
-  err = ncw_input_window_init(&iw, 16, 12, 30, "input", 0);
-  if (err != NCW_OK) {
-    goto scroll;
-  }
-
-  scroll_window_t sw = NULL;
-  err = ncw_scroll_window_init(&sw, 16, 0, 30, 12, "scroll");
-  if (err != NCW_OK) {
-    goto init;
-  }
-
-  // set output for the input window
-  ncw_input_window_set_output(iw, scroll_output, (void *)sw);
-
   menu_window_t mw = NULL;
   err = ncw_menu_window_init(&mw, 1, 0, 15, 15, "menu");
   if (err != NCW_OK) {
@@ -56,9 +41,24 @@ main(void) {
     goto menu;
   }
 
+  input_window_t iw = NULL;
+  err = ncw_input_window_init(&iw, 16, 12, 30, "input", 0);
+  if (err != NCW_OK) {
+    goto scroll;
+  }
+
+  scroll_window_t sw = NULL;
+  err = ncw_scroll_window_init(&sw, 16, 0, 30, 12, "scroll");
+  if (err != NCW_OK) {
+    goto init;
+  }
+
+  // set output for the input window
+  ncw_input_window_set_output(iw, scroll_output, (void *)sw);
+
+
   // event loop
   int event = 0;
-  ncw_focus_step();
   input_window_t diw = NULL;
   for (;;) {
     ncw_update();

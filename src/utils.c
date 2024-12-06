@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <pthread.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -8,7 +9,6 @@
 #include "ncwrap.h"
 
 #include "window.h"
-#include "helper.h"
 
 ncw_err
 ncw_init(void) {
@@ -81,18 +81,16 @@ fail:
 void
 ncw_update(void) {
 
-  if (NULL == get_focus()) {
+  window_handle_t focus = get_focus();
+  if (NULL == focus) {
     return;
   }
 
   // update get_window_handle() last
-  for (window_handle_t iter = get_focus()->next;; iter = iter->next) {
-    if (NULL == iter || NULL == iter->update.cb) {
-      // window has no handler error
-      continue;
-    }
+  for (window_handle_t iter = focus->next;; iter = iter->next) {
+    assert(iter != NULL && iter->update.cb != NULL);
     iter->update.cb(iter->update.ctx);
-    if (get_focus() == iter) {
+    if (focus == iter) {
       break;
     }
   }
@@ -107,6 +105,7 @@ void
 ncw_focus_step(void) {
 
   if (NULL == get_focus()) {
+    fprintf(stderr, "no interactive windows\n");
     return;
   }
 
@@ -122,11 +121,13 @@ ncw_focus_step(void) {
 
 void
 ncw_event_handler(int event) {
-  get_focus()->event_handler.cb(event, get_focus()->event_handler.ctx);
+  window_handle_t wh = get_focus();
+  if (wh != NULL && wh->event_handler.cb != NULL) {
+    wh->event_handler.cb(event, wh->event_handler.ctx);
+  }
 }
 
 int
 ncw_getch(void) {
   return wgetch(stdscr);
 }
-

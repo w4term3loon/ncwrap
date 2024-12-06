@@ -1,5 +1,5 @@
-#include <stdlib.h>
 #include <assert.h>
+#include <stdlib.h>
 
 #include "helper.h"
 #include "window.h"
@@ -7,7 +7,7 @@
 // The global handle for the window buffer
 // that specifies which window receives the
 // events at any moment
-static window_handle_t g_focus = NULL;
+static window_handle_t g_focus;
 
 window_handle_t
 get_focus(void) {
@@ -18,11 +18,14 @@ void
 set_focus(window_handle_t wh) {
 
   if (NULL == wh) {
+    fprintf(stderr, "empty window handler");
     return;
   }
 
   // notify the last handler
-  g_focus->event_handler.cb(FOCUS_OFF, g_focus->event_handler.ctx);
+  if (g_focus != NULL && g_focus->event_handler.cb != NULL) {
+    g_focus->event_handler.cb(FOCUS_OFF, g_focus->event_handler.ctx);
+  }
 
   g_focus = wh;
 
@@ -49,6 +52,9 @@ window_register(struct update_t update, struct event_handler_t handler) {
     new->prev = new;
     new->next = new;
     g_focus = new;
+
+    // notify the event handler of the window
+    g_focus->event_handler.cb(FOCUS_ON, g_focus->event_handler.ctx);
   } else {
     // init last facing side
     g_focus->prev->next = new;
@@ -90,4 +96,3 @@ window_unregister(window_handle_t wh) {
 clean:
   free(wh);
 }
-

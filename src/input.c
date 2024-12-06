@@ -5,8 +5,8 @@
 #include "ncwrap.h"
 
 #include "helper.h"
-#include "window.h"
 #include "input.h"
+#include "window.h"
 
 ncw_err
 ncw_input_window_init(input_window_t *iw, int x, int y, int width, const char *title,
@@ -34,7 +34,7 @@ ncw_input_window_init(input_window_t *iw, int x, int y, int width, const char *t
   (*iw)->line_sz = 0;
   (*iw)->display_offs = 0;
   (*iw)->cursor_offs = 0;
-  (*iw)->focus = 0;
+  (*iw)->focus = FOCUS_OFF;
 
   // Title
   (*iw)->title = (char *)malloc(strlen(title) + 1);
@@ -216,9 +216,8 @@ input_window_handler(int event, void *window_ctx) {
 
       del((*iw)->buf, (*iw)->buf_sz, (*iw)->display_offs + (*iw)->cursor_offs - 1);
 
-      if ((*iw)->display_offs != 0 &&
-          ((*iw)->cursor_offs + (*iw)->display_offs == (*iw)->line_sz ||
-           (*iw)->cursor_offs <= (*iw)->width)) {
+      if ((*iw)->display_offs != 0 && ((*iw)->cursor_offs + (*iw)->display_offs == (*iw)->line_sz ||
+                                       (*iw)->cursor_offs <= (*iw)->width)) {
         (*iw)->display_offs -= 1;
       } else {
         (*iw)->cursor_offs -= 1;
