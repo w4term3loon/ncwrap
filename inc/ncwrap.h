@@ -19,10 +19,9 @@ typedef enum {
   NCW_NCURSES_FAIL,        // ncurses library ran into error (?)
   NCW_INVALID_PARAM,       // invalid parameter for function
   NCW_INSUFFICIENT_MEMORY, // application ran out of memory
+  NCW_FAILED_TO_OPEN,      // failed to open resource
+  NCW_FAILED_TO_CLOSE,     // failed to close resource
 } ncw_err;
-
-// window handler type
-typedef struct window_handle *window_handle_t;
 
 // input window type
 typedef struct input_window *input_window_t;
@@ -78,8 +77,8 @@ ncw_event_handler(int event);
  * @return: error code.
  */
 ncw_err
-ncw_input_window_init(input_window_t *iw, int x, int y, int width,
-                      const char *title, char is_popup);
+ncw_input_window_init(input_window_t *iw, int x, int y, int width, const char *title,
+                      char is_popup);
 
 /* Close input window and set the pointer to NULL.
  * @param iw[in,out]: the window to be closed.
@@ -110,8 +109,7 @@ ncw_input_window_set_output(input_window_t iw, output_cb cb, void *ctx);
  * @return: error code.
  */
 ncw_err
-ncw_scroll_window_init(scroll_window_t *sw, int x, int y, int width, int height,
-                       const char *title);
+ncw_scroll_window_init(scroll_window_t *sw, int x, int y, int width, int height, const char *title);
 
 /* Close scroll window and set the pointer to NULL.
  * @param sw[in,out]: the target window.
@@ -141,8 +139,7 @@ typedef void (*option_cb)(void *ctx);
  * @return: error code.
  */
 ncw_err
-ncw_menu_window_init(menu_window_t *mw, int x, int y, int width, int height,
-                     const char *title);
+ncw_menu_window_init(menu_window_t *mw, int x, int y, int width, int height, const char *title);
 
 /* Close menu window and set the pointer to NULL.
  * @param mw[in,out]: the target window.
@@ -159,8 +156,7 @@ ncw_menu_window_close(menu_window_t *mw);
  * @return: error code.
  */
 ncw_err
-ncw_menu_window_add_option(menu_window_t mw, const char *label, option_cb cb,
-                           void *ctx);
+ncw_menu_window_add_option(menu_window_t mw, const char *label, option_cb cb, void *ctx);
 
 /* Delete option from the menu window.
  * @param mw[in]: the target window.
@@ -169,5 +165,12 @@ ncw_menu_window_add_option(menu_window_t mw, const char *label, option_cb cb,
  */
 ncw_err
 ncw_menu_window_delete_option(menu_window_t mw, const char *label);
+
+/* Log string to file.
+ * @param log[in]: the string to output.
+ * @return: error code.
+ */
+ncw_err
+ncw_log_file(const char* log);
 
 #endif // NCWRAP_H_HEADER_GUARD

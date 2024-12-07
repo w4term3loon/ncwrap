@@ -1,7 +1,7 @@
 #ifndef NCW_SCROLL_H_HEADER_GUARD
 #define NCW_SCROLL_H_HEADER_GUARD
 
-#include "ncwrap.h"
+#include "window.h"
 #include <ncurses.h>
 
 struct scroll_window {

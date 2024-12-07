@@ -2,6 +2,7 @@
 #define NCW_INPUT_H_HEADER_GURARD
 
 #include "ncurses.h"
+#include "window.h"
 #include "ncwrap.h"
 
 struct input_window {

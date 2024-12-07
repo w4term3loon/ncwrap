@@ -23,6 +23,8 @@ main(void) {
   err = ncw_init();
   if (err != NCW_OK) {
     goto end;
+  } else {
+    ncw_log_file("init success");
   }
 
   menu_window_t mw = NULL;
@@ -55,7 +57,6 @@ main(void) {
 
   // set output for the input window
   ncw_input_window_set_output(iw, scroll_output, (void *)sw);
-
 
   // event loop
   int event = 0;

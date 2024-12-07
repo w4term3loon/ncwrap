@@ -1,7 +1,7 @@
 #ifndef NCW_MENU_H_HEADER_GUARD
 #define NCW_MENU_H_HEADER_GUARD
 
-#include "ncwrap.h"
+#include "window.h"
 #include "ncurses.h"
 
 typedef struct {

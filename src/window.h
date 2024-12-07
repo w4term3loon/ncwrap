@@ -15,6 +15,8 @@ struct event_handler_t {
   void *ctx;
 };
 
+typedef struct window_handle *window_handle_t;
+
 struct window_handle {
   struct update_t update;
   struct event_handler_t event_handler;
